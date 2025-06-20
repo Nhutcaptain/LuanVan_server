@@ -31,17 +31,21 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function(this: any) {
-      return !this.googleId;
-    },
+    required: false,
     minlength: 6,
   },
   fullName: {
     type: String,
   },
   avatar: {
-    type: String,
-    default: '',
+    url: {
+      type: String,
+      default:'',
+    },
+    publicId: {
+      type: String,
+      default: '',
+    }
   },
   role: {
     type: String,

@@ -73,3 +73,56 @@ export const getDoctor = async (req: any, res: any) => {
         res.status(500).json({ message: 'Lỗi server' });
     }
 }
+
+export const getAllDoctor = async (req: any, res: any) => {
+    try {
+        const doctors = await Doctor.find().populate({
+            path: 'userId',
+            match: {role: 'doctor'},
+            select: '-password',
+        }).lean();
+        return res.status(200).json(doctors);
+    }catch(error) {
+        console.error('Lỗi không lây được danh sách bác sĩ');
+        res.status(500).json({message: 'Lỗi khi lấy danh sách bác sĩ'});
+    }
+}
+export const updateDoctor = async(req: any, res: any) => {
+    try{
+        const {id} = req.params;
+        const updateData = req.body;
+        console.log(updateData)
+        const doctor = await Doctor.findById(id);
+        
+        if(!doctor) {
+            return res.status(404).json({message: 'Không tìm thấy bác sĩ'});
+        }
+
+        if(updateData.userId) {
+            const userData = updateData.userId;
+            if (!userData.password) {
+                delete userData.password;
+            }
+            await User.findByIdAndUpdate(doctor.userId, userData,{
+                runValidators: true,
+            });
+        }
+
+        delete updateData.userId;
+
+        const updatedDoctor = await Doctor.findByIdAndUpdate(id, updateData, {
+            new: true,
+            runValidators: true,
+        }).populate('userId');
+
+
+        if(!updatedDoctor) {
+            return res.status(404).json({message: 'Không tìm thấy bác sĩ'});
+        }
+
+        res.status(200).json(updatedDoctor);
+    }catch(error) {
+        console.error('error');
+        res.status(500).json({message: 'Lỗi khi cập nhật bác sĩ phía server'});
+    }
+}
