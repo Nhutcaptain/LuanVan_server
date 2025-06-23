@@ -7,10 +7,27 @@ const doctorSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    specialization: {
+    nameSlug:{
         type: String,
+    },
+    departmentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department'
+    },
+    specialtyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Specialty',
         required: true,
         trim: true
+    },
+    specialization: {
+        type: String,
+        trim: true
+    },
+    subSpecialty: {
+        type: [String],
+        default: [],
+        trim: true,
     },
     certificate:{
         type:[String],
@@ -28,5 +45,7 @@ const doctorSchema = new mongoose.Schema({
         shifts: [String],
     }
 })
+
+
 
 export const Doctor = mongoose.model('Doctor', doctorSchema);

@@ -7,6 +7,9 @@ import authRoutes from './routes/auth.route';
 import patientRoutes from './routes/patient.route';
 import expressSession from 'express-session';
 import imagesRoute from './routes/images.route';
+import departmentRoute from './routes/department.route';
+import scheduleRoute from './routes/schedule.route';
+import appointmentRoute from './routes/appointment.route'
 import passport from 'passport';
 import doctorRoute from './routes/doctor.route';
 import './config/passport';
@@ -32,5 +35,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/doctors',doctorRoute);
 app.use('/api/patient',patientRoutes);
 app.use('/api/images',imagesRoute);
+app.use('/api/department',departmentRoute);
+app.use('/api/schedule',scheduleRoute);
+app.use('/api/appointment',appointmentRoute)
 
 export default app;

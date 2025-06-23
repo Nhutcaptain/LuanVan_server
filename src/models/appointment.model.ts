@@ -15,18 +15,26 @@ const appointmentSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    session:{
+        type: String,
+        enum: ['morning','afternoon'],
+        required: true,
+    },
     departmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department',
     },
-    roomId: {
+    specialtyId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Room',
+        ref: 'Specialty',
     },
     status: {
         type: String,
         enum: ['scheduled', 'completed', 'cancelled'],
         default: 'scheduled'
+    },
+    reason:{
+        type: String,
     },
     notificationSent: {
         email: Boolean,

@@ -4,6 +4,15 @@ import { Doctor } from '../models/doctor.model';
 import { Appointment } from '../models/appointment.model';
 import bcrypt from 'bcryptjs';
 
+const toSlug = (str: string) => {
+  return str
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Bỏ dấu tiếng Việt
+    .replace(/\s+/g, '-')                             // Thay khoảng trắng bằng dấu gạch ngang
+    .replace(/[^a-zA-Z0-9\-]/g, '');                  // Bỏ ký tự đặc biệt
+};
+
 export const createDoctor = async (req: Request, res: Response) => {
     try {
         const {
@@ -38,9 +47,11 @@ export const createDoctor = async (req: Request, res: Response) => {
         });
 
         const savedUser = await newUser.save();
+        const nameSlug = `bs-${toSlug(fullName)}`;
         const newDoctor = new Doctor({
             userId: savedUser._id,
             specialization,
+            nameSlug,
             certificate,
             experience,
             schedule,
@@ -125,4 +136,83 @@ export const updateDoctor = async(req: any, res: any) => {
         console.error('error');
         res.status(500).json({message: 'Lỗi khi cập nhật bác sĩ phía server'});
     }
+}
+
+interface IPopulatedDoctor extends Document {
+  userId: {
+    fullName: string;
+    avatar: any;
+    dateOfBirth: string;
+  };
+  departmentId: {
+    name: string;
+  };
+  certificate: string[];
+  experience: string[];
+  specialization: string;
+}
+
+export const getDoctorBySlug = async(req: any, res: any) => {
+    const {nameSlug} = req.query;
+    try {
+        const doctor = await Doctor.findOne({ nameSlug })
+            .populate({
+                path: 'userId',
+                select: 'fullName avatar dateOfBirth'
+            })
+            .populate({
+                path: 'departmentId',
+                select: 'name',
+            }) as unknown as IPopulatedDoctor;
+
+        if(!doctor) {
+            return res.status(404).json({message:'Không tìm thấy bác sĩ'});
+        }
+
+        const simplified = {
+            fullName: doctor.userId?.fullName,
+            certificate: doctor.certificate,
+            experience: doctor.experience,
+            avatar: doctor.userId?.avatar,
+            dateOfBirth: doctor.userId?.dateOfBirth,
+            department: doctor.departmentId?.name,
+            specialization: doctor.specialization,
+        };
+
+        res.status(200).json(simplified);
+
+    }catch(error) { 
+        console.error(error);
+    }
+}
+
+export const getDoctorBySpecialtyId = async( req: any, res: any) => {
+    const { specialtyId } = req.params;
+
+  try {
+    if (!specialtyId) {
+      return res.status(400).json({ message: "Thiếu specialtyId trong yêu cầu." });
+    }
+
+    const doctors = await Doctor.find({ specialtyId })
+      .populate({
+        path: 'userId',
+        select: 'fullName' // chỉ lấy tên từ userId
+      })
+      .select('_id userId'); // chỉ lấy _id và userId (đã populate)
+
+    // Trả về dữ liệu gồm _id của bác sĩ và tên
+    const result = doctors.map(doc  => {
+      const user = doc.userId as { fullName?: string };
+      return {
+        _id: doc._id,
+        name: user?.fullName || 'Không rõ tên'
+      };
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Lỗi khi lấy danh sách bác sĩ theo chuyên khoa:', error);
+    res.status(500).json({ message: 'Đã xảy ra lỗi khi lấy bác sĩ.' });
+  }
 }
