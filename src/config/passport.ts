@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { User } from '../models/user.model';
+import { Patient } from '../models/patient.model';
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID || '',
@@ -16,7 +17,9 @@ async (accessToken, refreshToken, profile, done) => {
                     fullName: profile.displayName,
                     email: profile.emails && profile.emails.length > 0 ? profile.emails[0].value : '',
                     emailVerified: true,
+                    role: 'patient',
                 });
+                await Patient.create({userId: user._id})
             }
             return done(null, user);
         }catch(error) {

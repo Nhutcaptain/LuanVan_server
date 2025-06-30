@@ -3,6 +3,7 @@ import { User } from '../models/user.model';
 import { Doctor } from '../models/doctor.model';
 import { Appointment } from '../models/appointment.model';
 import bcrypt from 'bcryptjs';
+import { getSubSpecialtyFromDiagnosis } from '../config/services/gpt.service';
 
 const toSlug = (str: string) => {
   return str
@@ -215,4 +216,22 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
     console.error('Lỗi khi lấy danh sách bác sĩ theo chuyên khoa:', error);
     res.status(500).json({ message: 'Đã xảy ra lỗi khi lấy bác sĩ.' });
   }
+}
+
+export const getSuggestDoctors = async(diagnosis: string) => {
+    try{
+        const specialization = await getSubSpecialtyFromDiagnosis(diagnosis);
+        if (!specialization) return [];
+        const doctors = await Doctor.find({
+            specialization: { $regex: specialization, $options: 'i' }
+        })
+            .limit(3)
+            .populate("userId", "fullName avatar");
+        if (!doctors || doctors.length === 0) {
+            return [];
+        }
+         return doctors;
+    }catch(error) {
+        console.error(error);
+    }
 }

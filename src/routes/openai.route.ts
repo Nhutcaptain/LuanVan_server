@@ -1,6 +1,8 @@
 import express, { Request, Response, Router } from 'express';
-import { askGPT } from '../config/azureOpenaiClient';
+import { askGPT, extractSymptoms } from '../config/azureOpenaiClient';
 import { fetchAllUsers } from '../config/services/user.service';
+import { askGoogleAI } from '../config/services/googleAIService';
+import { getGenerativeModel } from '../config/googleClient';
 
 const router: Router = express.Router();
 
@@ -28,5 +30,26 @@ router.post('/ask', async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: 'Failed to get response from GPT' });
   }
 });
+
+router.post("/generate", async (req: any, res: any) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const model = getGenerativeModel();
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    res.json({ response: text });
+  } catch (error) {
+    console.error("Error generating content:", error);
+    res.status(500).json({ error: "Failed to generate content" });
+  }
+});
+
 
 export default router;

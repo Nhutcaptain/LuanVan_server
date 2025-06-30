@@ -9,7 +9,9 @@ import expressSession from 'express-session';
 import imagesRoute from './routes/images.route';
 import departmentRoute from './routes/department.route';
 import scheduleRoute from './routes/schedule.route';
-import appointmentRoute from './routes/appointment.route'
+import appointmentRoute from './routes/appointment.route';
+import symptomRoute from './routes/symptom.route';
+import examinationRoute from './routes/examination.route';
 import passport from 'passport';
 import doctorRoute from './routes/doctor.route';
 import './config/passport';
@@ -37,6 +39,8 @@ app.use('/api/patient',patientRoutes);
 app.use('/api/images',imagesRoute);
 app.use('/api/department',departmentRoute);
 app.use('/api/schedule',scheduleRoute);
-app.use('/api/appointment',appointmentRoute)
+app.use('/api/appointment',appointmentRoute);
+app.use('/api/symptom', symptomRoute);
+app.use('/api/examination',examinationRoute);
 
 export default app;
