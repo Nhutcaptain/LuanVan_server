@@ -1,19 +1,30 @@
 import {Shift} from '../models/shift.model';
 import { WeeklySchedule } from '../models/weeklySchedule.model';
+import {Location} from '../models/location.model';
+
 
 export const createShift = async(req: any, res: any) => {
     try {
-    const { name, startTime, endTime, location } = req.body;
+    const { name, startTime, endTime, locationId } = req.body;
 
     if (!name || !startTime || !endTime) {
       return res.status(400).json({ message: 'Vui lòng điền đủ name, startTime, endTime' });
+    }
+
+    const existingShift = await Shift.findOne({
+        startTime,
+        endTime,
+        locationId
+    })
+    if(existingShift) {
+        return res.status(409).json({message: 'Ca làm đã tồn tại'});
     }
 
     const newShift = await Shift.create({
       name,
       startTime,
       endTime,
-      location
+      locationId
     });
 
     return res.status(201).json({
@@ -61,7 +72,6 @@ export const getWeeklyScheduleByDoctor = async(req: any, res: any) => {
     try {
 
         const {doctorId} = req.params;
-
         if(!doctorId) {
             return res.status(400).json({ message: 'Thiếu doctorId trên URL' });
         }
@@ -80,5 +90,41 @@ export const getWeeklyScheduleByDoctor = async(req: any, res: any) => {
     }catch(error) {
         console.error('[getWeeklyScheduleByDoctor] Lỗi:', error);
         return res.status(500).json({ message: 'Lỗi máy chủ', error: error });
+    }
+}
+
+export const getAllWeeklyScheduleByDoctors = async(req: any, res: any) => {
+    try{
+        const {doctorIds} = req.body;
+        if (!Array.isArray(doctorIds) || doctorIds.length === 0) {
+            return res.status(400).json({ message: 'doctorIds phải là một mảng và không được rỗng' });
+        }
+        const schedules = await WeeklySchedule.find({ doctorId: { $in: doctorIds } })
+        .populate({
+            path: 'schedule.shiftIds',
+            select: 'name startTime endTime',
+        });
+        return res.status(200).json(schedules);
+    }catch(error) {
+        console.error(error);
+        return res.status(500);
+    }
+}
+
+export const getShiftByLocation = async(req: any, res: any) => {
+    try{
+        const {id} = req.params;
+        if(!id) {
+            return res.status(400).json({message: "Phải nhập id"});
+        }
+        const result = await Shift.find({locationId: id});
+
+        if(!result || result.length === 0) {
+            return res.status(404).json({message: 'Không tìm thấy ca làm nào'});
+        }
+        return res.status(200).json(result);
+    }catch(error) {
+        console.error(error);
+        return res.status(500).json({message: 'Lỗi server'});
     }
 }
