@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const specialScheduleSchema = new mongoose.Schema({
+  doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
+  date: { type: Date, required: true }, // ngày cụ thể, ví dụ 2025-07-12
+  type: {
+    type: String,
+    required: true
+  },
+  note: { type: String }, // ghi chú thêm (ví dụ: "nghỉ phép", "họp hội đồng", v.v.)
+}, { timestamps: true });
+
 const weeklyScheduleSchema = new mongoose.Schema({
   doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
   schedule: [
@@ -20,4 +30,5 @@ const weeklyScheduleSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
+export const SpecialSchedule = mongoose.model('SpecialSchedule', specialScheduleSchema);
 export const WeeklySchedule = mongoose.model('WeeklySchedule', weeklyScheduleSchema);

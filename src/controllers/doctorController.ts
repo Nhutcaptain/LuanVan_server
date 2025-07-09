@@ -4,6 +4,7 @@ import { Doctor } from '../models/doctor.model';
 import { Appointment } from '../models/appointment.model';
 import bcrypt from 'bcryptjs';
 import { getSubSpecialtyFromDiagnosis } from '../config/services/gpt.service';
+import { Specialty } from '../models/specialty.model';
 
 const toSlug = (str: string) => {
   return str
@@ -14,58 +15,77 @@ const toSlug = (str: string) => {
     .replace(/[^a-zA-Z0-9\-]/g, '');                  // Bỏ ký tự đặc biệt
 };
 
-export const createDoctor = async (req: Request, res: Response) => {
-    try {
-        const {
-        email,
-        password,
-        fullName,
-        phone,
-        dateOfBirth,
-        gender,
-        address,
-        specialization,
-        certificate,
-        experience,
-        schedule,
-        } = req.body;
+export const createDoctor = async (req: any, res: any) => {
+  try {
+    const {
+      userId,       
+      departmentId,
+      specialtyId,
+      specialization,
+      certificate,
+      experience,
+      schedule,
+    } = req.body;
 
-        const existingUser = await User.findOne({email});
-        if(existingUser) {
-            return res.status(400).json({ message: 'Email đã tồn tại' });
-        }
+    const {
+      email,
+      password,
+      fullName,
+      phone,
+      dateOfBirth,
+      gender,
+      address,
+    } = userId;
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({
-            email,
-            password: hashedPassword,
-            fullName,
-            phone,
-            dateOfBirth,
-            gender,
-            address,
-            role:'doctor',
-        });
-
-        const savedUser = await newUser.save();
-        const nameSlug = `bs-${toSlug(fullName)}`;
-        const newDoctor = new Doctor({
-            userId: savedUser._id,
-            specialization,
-            nameSlug,
-            certificate,
-            experience,
-            schedule,
-        });
-        const savedDoctor = await newDoctor.save();
-
-        res.status(201).json({message: 'Đã tạo bác sĩ thành công', doctor: savedDoctor});
-    }catch(error) {
-        console.error('Error creating doctor:', error);
-        res.status(500).json({ message: 'Internal server error' });
+    // Kiểm tra email đã tồn tại
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      console.log('Email đã tồn tại');
+      return res.status(400).json({ message: 'Email đã tồn tại' });
     }
 
-}
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Tạo User
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      fullName,
+      phone,
+      dateOfBirth,
+      gender,
+      address,
+      role: 'doctor',
+    });
+
+    const savedUser = await newUser.save();
+
+    // Tạo bác sĩ tương ứng
+    const nameSlug = `bs-${toSlug(fullName)}`;
+    const newDoctor = new Doctor({
+      userId: savedUser._id,
+      specialization,
+      departmentId,
+      specialtyId,
+      nameSlug,
+      certificate,
+      experience,
+      schedule,
+    });
+
+    const savedDoctor = await newDoctor.save();
+
+    res.status(201).json({
+      message: 'Đã tạo bác sĩ thành công',
+      doctor: savedDoctor,
+    });
+  } catch (error) {
+    console.error('Error creating doctor:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 export const getDoctor = async (req: any, res: any) => {
     try{
@@ -103,7 +123,6 @@ export const updateDoctor = async(req: any, res: any) => {
     try{
         const {id} = req.params;
         const updateData = req.body;
-        console.log(updateData)
         const doctor = await Doctor.findById(id);
         
         if(!doctor) {
@@ -144,14 +163,35 @@ interface IPopulatedDoctor extends Document {
     fullName: string;
     avatar: any;
     dateOfBirth: string;
+    gender: string;
   };
+  _id: string;
   departmentId: {
+    _id: string;
     name: string;
   };
   certificate: string[];
   experience: string[];
-  specialization: string;
+  specialtyId:{
+    _id: string;
+    name: string;
+  }
 }
+
+// export const getDoctorForAppointment = async(req: any, res: any) => {
+//   const{doctorSlug} = req.query;
+//   try{
+//     if(!doctorSlug) {
+//       return res.status(400).json({message: 'Thiếu doctorSlug trong yêu cầu'});
+//     }
+
+//     const doctor = await Doctor.findOne({nameSlug: doctorSlug})
+     
+//   }catch(error) {
+//     console.error(error);
+//     res.status(500).json({message: 'Lỗi ở server'});
+//   }
+// }
 
 export const getDoctorBySlug = async(req: any, res: any) => {
     const {nameSlug} = req.query;
@@ -159,8 +199,9 @@ export const getDoctorBySlug = async(req: any, res: any) => {
         const doctor = await Doctor.findOne({ nameSlug })
             .populate({
                 path: 'userId',
-                select: 'fullName avatar dateOfBirth'
+                select: 'fullName avatar dateOfBirth gender'
             })
+            .populate('specialtyId', 'name')
             .populate({
                 path: 'departmentId',
                 select: 'name',
@@ -171,13 +212,15 @@ export const getDoctorBySlug = async(req: any, res: any) => {
         }
 
         const simplified = {
+            _id: doctor._id,
             fullName: doctor.userId?.fullName,
             certificate: doctor.certificate,
             experience: doctor.experience,
             avatar: doctor.userId?.avatar,
             dateOfBirth: doctor.userId?.dateOfBirth,
-            department: doctor.departmentId?.name,
-            specialization: doctor.specialization,
+            departmentId: doctor.departmentId,
+            specialtyId: doctor.specialtyId,
+            gender: doctor.userId.gender,
         };
 
         res.status(200).json(simplified);
@@ -221,12 +264,15 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
 export const getSuggestDoctors = async(diagnosis: string) => {
     try{
         const specialization = await getSubSpecialtyFromDiagnosis(diagnosis);
-        if (!specialization) return [];
+        const specialty = await Specialty.findOne({name: specialization}).select('_id')
+        if (!specialization || !specialty) return [];
         const doctors = await Doctor.find({
-            specialization: { $regex: specialization, $options: 'i' }
+            specialtyId: specialty._id
         })
             .limit(3)
-            .populate("userId", "fullName avatar");
+            .populate("userId", "fullName avatar").populate('specialtyId', 'name')
+            .select('_id nameSlug');
+            
         if (!doctors || doctors.length === 0) {
             return [];
         }

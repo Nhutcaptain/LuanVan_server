@@ -13,11 +13,10 @@ const appointmentSchema = new mongoose.Schema({
     },
     appointmentDate: {
         type: Date,
-        required: true
+        required: true,
     },
     session:{
         type: String,
-        enum: ['morning','afternoon'],
         required: true,
     },
     departmentId: {

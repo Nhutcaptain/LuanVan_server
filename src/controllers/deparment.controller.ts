@@ -30,7 +30,7 @@ export const createDepartment = async(req: any, res: any) => {
 
 export const getAllDepartment = async(re: any, res: any) => {
     try {
-    const departments = await Department.find().select('name _id');
+    const departments = await Department.find().select('name _id').sort({name: 1});
 
     res.status(200).json(departments);
   } catch (error) {
@@ -109,6 +109,19 @@ export const getAllSpecialty = async(req: any, res: any) => {
     }catch(error) { 
         console.error(error);
         return res.status(500).json({message: 'Lỗi server khi lấy chuyên khoa', error});
+    }
+}
+
+export const getNameOfAllSpecialty = async() => {
+    try{
+        const specialtyData = await Specialty.find().select('name');
+        if(!specialtyData) {
+            return [];
+        }
+        return specialtyData;
+    }catch(error){
+        console.error(error);
+        return;
     }
 }
 

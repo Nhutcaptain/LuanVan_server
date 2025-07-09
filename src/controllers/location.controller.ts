@@ -17,7 +17,7 @@ export const createLocation = async(req: any, res: any) => {
 export const getAllLocation = async (req: any, res: any) => {
     try{
         const result = await Location.find();
-        return res.status(201).json(result);
+        return res.status(200).json(result);
     }catch(error) {
         console.error(error);
         return res.status(500).json({message: 'Lỗi từ server'});

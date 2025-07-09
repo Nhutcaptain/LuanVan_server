@@ -1,7 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import { askGPT, extractSymptoms } from '../config/azureOpenaiClient';
 import { fetchAllUsers } from '../config/services/user.service';
-import { askGoogleAI } from '../config/services/googleAIService';
+import { askGoogleAI, detectIntent } from '../config/services/googleAIService';
 import { getGenerativeModel } from '../config/googleClient';
 
 const router: Router = express.Router();
@@ -19,6 +19,15 @@ router.post('/ask', async (req: Request, res: Response): Promise<void> => {
       const users = await fetchAllUsers();
       // Trả về dạng JSON object luôn, không stringify
       res.json({ reply: users });
+      return;
+    }
+
+    const intent = await detectIntent(message);
+
+    if(intent === 'diagnosis') {
+      res.json({
+        reply: 'Để có thể hỗ trợ chẩn đoán chính xác, bạn hãy bật chức năng chẩn đoán, khi bật chức năng này, hệ thống sẽ lưu lại triệu chứng và tiến hành phân tích nâng cao'
+      });
       return;
     }
 

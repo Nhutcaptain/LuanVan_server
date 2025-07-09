@@ -1,6 +1,7 @@
 import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 import dotenv from "dotenv";
+import { getNameOfAllSpecialty } from "../../controllers/deparment.controller";
 
 dotenv.config();
 
@@ -92,14 +93,22 @@ export const generateFullHealthResponse = async (diagnosis: string, symptoms: st
 }
 
 export async function getSubSpecialtyFromDiagnosis(diagnosis: string): Promise<string> {
+  // You need to provide the required argument, e.g., 'null' or a proper response object if available
+  const specialtiesRaw = await getNameOfAllSpecialty();
+  const specialties: string[] = (specialtiesRaw ?? []).map((s: any) => s.name);
+  const listText = specialties.map((s, i) => `${i+1}. ${s}`).join('\n');
   const prompt = `
-Bạn là hệ thống phân loại chuyên khoa y tế. 
-Hãy cho biết chuyên khoa phụ trách điều trị chính cho bệnh sau:
+Bạn là hệ thống phân loại chuyên khoa y tế.
+
+Dưới đây là danh sách các chuyên khoa có sẵn trong bệnh viện:
+${listText}
+
+Hãy chọn duy nhất **một chuyên khoa phù hợp nhất** trong danh sách trên để phụ trách điều trị cho bệnh sau:
 
 Bệnh: "${diagnosis}"
 
-Chỉ trả lời duy nhất một chuyên khoa ngắn gọn, ví dụ: "Nội tim mạch", "Nội hô hấp", "thần kinh", "huyết học", "tai mũi họng", "da liễu", "nội tiết", "cơ xương khớp", v.v.
-Không giải thích gì thêm.
+Chỉ trả lời **chính xác tên chuyên khoa trong danh sách trên**, không giải thích gì thêm.
+Nếu không tìm thấy chuyên khoa phù hợp, trả lời: "khác".
 `;
 
   const response = await client.path("/chat/completions").post({

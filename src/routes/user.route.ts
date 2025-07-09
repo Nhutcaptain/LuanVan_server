@@ -10,6 +10,7 @@ router.get('/', userController.getAllUsers);
 router.post('/', userController.createUser);
 router.put('/update',authenticate,userController.updateUser);
 router.post('/createTempUser',userController.createTemporaryUser);
+router.get('/getUserId/:doctorId',userController.getUserIdByDoctorId);
 
 
 export default router;

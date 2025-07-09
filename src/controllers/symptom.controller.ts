@@ -116,30 +116,29 @@ export const getDiagnosis = async (req: Request, res: Response) => {
     const mlDiagnosis = mlResult.prediction?.trim().toLowerCase();
 
     // 4. Gọi GPT để chẩn đoán
-    const gptDiagnosisRaw = await diagnoseFromSymptoms(description);
-    const gptDiagnosis = gptDiagnosisRaw.trim().toLowerCase();
+    // const gptDiagnosisRaw = await diagnoseFromSymptoms(description);
+    // const gptDiagnosis = gptDiagnosisRaw.trim().toLowerCase();
 
-    // 5. So sánh và chọn kết quả
-    let finalDiagnosis = gptDiagnosis;
-    let source = "gpt";
+    // // 5. So sánh và chọn kết quả
+    // let finalDiagnosis = gptDiagnosis;
+    // let source = "gpt";
 
-    if (mlDiagnosis && mlDiagnosis !== "unknown" && mlDiagnosis === gptDiagnosis) {
-      finalDiagnosis = mlDiagnosis;
-      source = "ml-model";
-    }
+    // if (mlDiagnosis && mlDiagnosis !== "unknown" && mlDiagnosis === gptDiagnosis) {
+    //   finalDiagnosis = mlDiagnosis;
+    //   source = "ml-model";
+    // }
 
     // 6. Tạo phản hồi tự nhiên
-    const fullResponse = await generateFullHealthResponse(finalDiagnosis, normalized);
-    const doctors = await getSuggestDoctors(finalDiagnosis);
+    const fullResponse = await generateFullHealthResponse(mlDiagnosis, normalized);
+    const doctors = await getSuggestDoctors(mlDiagnosis);
 
     return res.json({
       response: fullResponse,
-      diagnosis: finalDiagnosis,
-      source,
+      diagnosis: mlDiagnosis,
+      source: 'ml-model',
       symptoms: updatedSymptoms,
       comparison: {
         ml: mlDiagnosis,
-        gpt: gptDiagnosis
       },
       doctors: doctors
     });

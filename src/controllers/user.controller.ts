@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import { Patient } from '../models/patient.model';
 import {Examination} from '../models/examination.model';
+import { Doctor } from '../models/doctor.model';
 
 export const getAllUsers = async (_req: Request, res: Response) => {
   const users = await User.find();
@@ -16,6 +17,7 @@ export const createUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: any, res: Response) => {
   const userId = req.user.userId;
+  console.log('User ID:', userId);
   const profileData = req.body;
   try{
     const updateUser = await User.findByIdAndUpdate(
@@ -79,5 +81,22 @@ export const createTemporaryUser = async (req: any, res: any) => {
   }catch(error) {
     console.error('Lỗi khi tạo temp user', error);
     return res.status(500).json({message: 'Lỗi phía server khi tạo user ẩn danh', error});
+  }
+}
+
+export const getUserIdByDoctorId = async(req: any, res:any) => {
+  try{
+    const {doctorId} = req.params;
+    if(!doctorId) {
+      return res.status(400).json({message: 'Thiếu doctorId trong yêu cầu'});
+    }
+    const doctor = await Doctor.findById(doctorId).select('userId');
+    if(!doctor) {
+      return res.status(404).json({message: 'Không tìm thấy người dùng này'});
+    }
+    return res.status(200).json({userId: doctor.userId.toString()});
+  }catch(error) {
+    console.error(error);
+    return res.status(500).json({message: 'Lỗi của server'});
   }
 }

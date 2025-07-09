@@ -2,7 +2,6 @@ import cloudinary from '../config/cloudinary';
 
 export const deleteImageFromCloudinary = async (req: any, res: any) => {
     const {publicId} = req.body;
-    console.log(publicId);
 
      if (!publicId) return res.status(400).json({ message: 'Thiếu publicId' });
 

@@ -18,7 +18,7 @@ const prescriptionItemSchema = new mongoose.Schema({
         type: String,
         required: true,
     }
-},{_id: false})
+},{_id: false});
 
 const examinationSchema = new mongoose.Schema({
     patientId: {
@@ -60,7 +60,10 @@ const examinationSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true
-  }
+  },
+  followUp: {
+    type: Date,
+  },
 },{timestamps: true});
 
 export const Examination = mongoose.model('Examination',examinationSchema);
