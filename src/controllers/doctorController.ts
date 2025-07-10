@@ -5,6 +5,7 @@ import { Appointment } from '../models/appointment.model';
 import bcrypt from 'bcryptjs';
 import { getSubSpecialtyFromDiagnosis } from '../config/services/gpt.service';
 import { Specialty } from '../models/specialty.model';
+import { OvertimeSchedule } from '../models/overtimeSchedule.model';
 
 const toSlug = (str: string) => {
   return str
@@ -160,6 +161,7 @@ export const updateDoctor = async(req: any, res: any) => {
 
 interface IPopulatedDoctor extends Document {
   userId: {
+    _id: string;
     fullName: string;
     avatar: any;
     dateOfBirth: string;
@@ -229,6 +231,60 @@ export const getDoctorBySlug = async(req: any, res: any) => {
         console.error(error);
     }
 }
+
+export const generateDoctorPrompt = async (doctorSlug: string) => {
+  try {
+    const doctor = await Doctor.findOne({ nameSlug: doctorSlug })
+      .populate({
+        path: 'userId',
+        select: 'fullName _id'
+      })
+      .populate('specialtyId', 'name')
+      .populate('departmentId', 'name') as unknown as IPopulatedDoctor;
+
+    if (!doctor) return null;
+
+    const overtimeSchedule = await OvertimeSchedule.findOne({ doctorId: doctor.userId?._id });
+
+    // Biến dữ liệu thành văn bản
+    const fullName = doctor.userId?.fullName;
+    const department = (doctor.departmentId as any)?.name;
+    const specialty = (doctor.specialtyId as any)?.name;
+    const experience = doctor.experience;
+    const certificate = doctor.certificate;
+
+    const scheduleText = overtimeSchedule?.weeklySchedule
+      .filter(day => day.isActive)
+      .map(day => {
+        const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+        const slots = day.slots.map(slot => `từ ${slot.startTime} đến ${slot.endTime}`).join(', ');
+        return `- ${dayNames[day.dayOfWeek]} tại cơ sở ID: ${day.locationId}: ${slots}`;
+      }).join('\n') || 'Không có lịch làm ngoài giờ.';
+
+    const prompt = `
+Dưới đây là thông tin về một bác sĩ. Hãy giúp tôi viết lại đoạn giới thiệu ngắn gọn, chuyên nghiệp và dễ đọc cho người bệnh. 
+
+**Thông tin bác sĩ:**
+- Họ tên: ${fullName}
+- Khoa: ${department}
+- Chuyên khoa: ${specialty}
+- Kinh nghiệm: ${experience || 'Không rõ'}
+- Bằng cấp: ${certificate || 'Không rõ'}
+
+**Lịch khám ngoài giờ:**
+${scheduleText}
+
+Viết lại đoạn giới thiệu để có thể hiển thị lên website.
+`.trim();
+
+    return prompt;
+
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
 
 export const getDoctorBySpecialtyId = async( req: any, res: any) => {
     const { specialtyId } = req.params;

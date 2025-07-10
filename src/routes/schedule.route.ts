@@ -13,7 +13,7 @@ router.post('/createSpecialSchedule',scheduleController.createSpecialSchedule);
 router.get('/getSpecialSchedule/:doctorId',scheduleController.getSpecialScheduleById);
 router.post('/createOvertimeSchedule', scheduleController.addOvertimeDay);
 router.get('/getOvertimeSchedule/:doctorId', scheduleController.getOvertime);
-router.put('/updateOvertimeSchedule', scheduleController.updateOvertimeDay); 
+router.put('/updateOvertimeSchedule/:scheduleId', scheduleController.updateOvertimeDay); 
 router.delete('/deleteOvertimeSchedule/:doctorId/:dayOfWeek', scheduleController.deleteOvertimeDay);
 
 export default router;

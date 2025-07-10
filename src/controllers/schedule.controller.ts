@@ -381,8 +381,8 @@ export const getOvertime = async (req: any, res: any) => {
 
 export const updateOvertimeDay = async (req: any, res: any) => {
   try {
-    const { scheduleId, dayOfWeek, slots, isActive, locationId } = req.body;
-
+    const { scheduleId } = req.params;
+    const {dayOfWeek, slots, isActive, locationId } = req.body;
     if (!scheduleId || dayOfWeek === undefined || !Array.isArray(slots)) {
       return res.status(400).json({ message: "Thiếu dữ liệu." });
     }
@@ -400,6 +400,8 @@ export const updateOvertimeDay = async (req: any, res: any) => {
 
     for (const slot of slots) {
       for (const shift of shifts) {
+        const shiftDay = weekly?.schedule.find(d => d.dayOfWeek === dayOfWeek);
+        if (!shiftDay) continue;
         if (
           isTimeOverlaps(
             slot.startTime,

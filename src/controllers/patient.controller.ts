@@ -35,6 +35,25 @@ export const getHealthStatus = async(req: any, res: any) => {
         return res.status(500).json({message: 'Lỗi khi lấy thông tin sức khoẻ từ server'});
     }
 }
+
+export const getHealthStatusForAI = async(id: string) => {
+    try{
+        
+        if(!id) {
+            return ;
+        }
+        const status = await HealthStatus.findOne({userId: id}).sort({createdAt: -1});
+
+        if(!status){
+            return null;
+        }
+        return status;
+    }catch(error) {
+        console.error("Không tìm thấy các chỉ số", error);
+        return null;
+    }
+}
+
 export const getPatientWithName = async(req: any, res: any) => {
     try {
         const {fullName, phone} = req.body;
