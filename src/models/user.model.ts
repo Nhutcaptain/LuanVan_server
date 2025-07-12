@@ -59,6 +59,7 @@ const userSchema = new mongoose.Schema({
     sparse: true, // Cho phép giá trị null hoặc không có
   },
   address: addressSchema,
+  ethnicity: String,
   dateOfBirth: {
     type: Date,
   },
@@ -66,6 +67,23 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true,
+  },
+  healthInsuranceNumber: {
+        type: String,
+        trim: true
+    },
+    occupation: {
+        type: String,
+        trim: true
+    },
+  idType: {
+    type: String,
+    enum: ['citizenId', 'identityCard', 'passport'],
+    default: 'citizenId'
+  },
+  idNumber: {
+    type: String,
+    trim: true
   },
   emailVerified: {
     type: Boolean,

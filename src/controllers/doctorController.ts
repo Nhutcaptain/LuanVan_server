@@ -6,15 +6,10 @@ import bcrypt from 'bcryptjs';
 import { getSubSpecialtyFromDiagnosis } from '../config/services/gpt.service';
 import { Specialty } from '../models/specialty.model';
 import { OvertimeSchedule } from '../models/overtimeSchedule.model';
+import { WeeklySchedule } from '../models/weeklySchedule.model';
+import { Department } from '../models/deparment.model';
+import { toSlug } from '../utils/toslug';
 
-const toSlug = (str: string) => {
-  return str
-    .trim()
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Bỏ dấu tiếng Việt
-    .replace(/\s+/g, '-')                             // Thay khoảng trắng bằng dấu gạch ngang
-    .replace(/[^a-zA-Z0-9\-]/g, '');                  // Bỏ ký tự đặc biệt
-};
 
 export const createDoctor = async (req: any, res: any) => {
   try {
@@ -95,7 +90,10 @@ export const getDoctor = async (req: any, res: any) => {
         if(!user) {
             return res.status(404).json({message: 'Không tìm thấy người dùng'});
         }
-        const doctor = await Doctor.findOne({userId}).populate('userId');
+        const doctor = await Doctor.findOne({userId})
+          .populate('userId')
+          .populate('specialtyId','name')
+          ;
         if(!doctor) {
             return res.status(404).json({message: 'Không tìm thấy bác sĩ'});
         }
@@ -194,6 +192,25 @@ interface IPopulatedDoctor extends Document {
 //     res.status(500).json({message: 'Lỗi ở server'});
 //   }
 // }
+export const getDoctorByDepartment = async(req: any, res: any) => {
+  try{
+    const {id} = req.params;
+    if(!id) {
+      return res.status(400).json({message: 'Thiếu thông tin'});
+    }
+    const doctors = await Doctor.find({departmentId: id})
+      .populate('userId', 'fullName email phone')
+      .populate('specialtyId','name _id');
+    ;
+    if(!doctors) {
+      return res.status(404).json({message: 'Không có bác sĩ nào thuộc khoa này'});
+    }
+    return res.status(200).json(doctors);
+  }catch(error) {
+    console.error(error);
+    return res.status(500).json({message: 'Lỗi ở server'});
+  }
+}
 
 export const getDoctorBySlug = async(req: any, res: any) => {
     const {nameSlug} = req.query;
@@ -213,6 +230,10 @@ export const getDoctorBySlug = async(req: any, res: any) => {
             return res.status(404).json({message:'Không tìm thấy bác sĩ'});
         }
 
+        const schedule = await WeeklySchedule.findOne({doctorId: doctor.userId._id})
+            .populate('schedule.shiftIds','name startTime endTime locationId');
+        ;
+
         const simplified = {
             _id: doctor._id,
             fullName: doctor.userId?.fullName,
@@ -223,6 +244,7 @@ export const getDoctorBySlug = async(req: any, res: any) => {
             departmentId: doctor.departmentId,
             specialtyId: doctor.specialtyId,
             gender: doctor.userId.gender,
+            schedule: schedule,
         };
 
         res.status(200).json(simplified);
@@ -231,6 +253,28 @@ export const getDoctorBySlug = async(req: any, res: any) => {
         console.error(error);
     }
 }
+
+export const getDoctorIdByUserId = async (req: any, res: any) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Thiếu userId.' });
+    }
+
+    const doctor = await Doctor.findOne({ userId }).select('_id');
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Không tìm thấy bác sĩ với userId đã cho.' });
+    }
+
+    return res.status(200).json({ doctorId: doctor._id });
+  } catch (error) {
+    console.error('Lỗi khi tìm bác sĩ:', error);
+    return res.status(500).json({ message: 'Lỗi server.' });
+  }
+};
+
 
 export const generateDoctorPrompt = async (doctorSlug: string) => {
   try {
@@ -299,14 +343,15 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
         path: 'userId',
         select: 'fullName' // chỉ lấy tên từ userId
       })
-      .select('_id userId'); // chỉ lấy _id và userId (đã populate)
+      .select('_id userId examinationPrice'); // chỉ lấy _id và userId (đã populate)
 
     // Trả về dữ liệu gồm _id của bác sĩ và tên
     const result = doctors.map(doc  => {
       const user = doc.userId as { fullName?: string };
       return {
         _id: doc._id,
-        name: user?.fullName || 'Không rõ tên'
+        name: user?.fullName || 'Không rõ tên',
+        examinationPrice: doc.examinationPrice
       };
     });
 

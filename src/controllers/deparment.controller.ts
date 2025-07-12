@@ -47,7 +47,7 @@ export const getAllSpecialtyByDepartmentId = async (req: any, res: any) => {
       return res.status(400).json({ message: "Thiếu departmentId trong yêu cầu." });
     }
 
-    const specialties = await Specialty.find({ departmentId }).select('_id name');
+    const specialties = await Specialty.find({ departmentId })
 
     res.status(200).json(specialties);
   } catch (error) {
@@ -55,6 +55,25 @@ export const getAllSpecialtyByDepartmentId = async (req: any, res: any) => {
     res.status(500).json({ message: 'Đã xảy ra lỗi khi lấy chuyên khoa.' });
   }
 }
+
+export const updateSpecialty = async(req: any, res: any) => {
+    try{
+        const {id} = req.params;
+        const data = req.body;
+        if(!id) {
+            return res.status(400).json({message: 'Thiếu thông tin'})
+        }
+        const result = await Specialty.findByIdAndUpdate(id, data, {new: true});
+        if(!result) {
+            return res.status(404).json({message: 'Không tìm thấy chuyên khoa này'});
+        }
+        return res.status(200).json(result);
+    }catch(error){
+        return res.status(500).json({message: 'Lỗi từ server'});
+    }
+}
+
+
 
 export const getDoctorsByDepartment = async(req: any, res: any) => {
     const {departmentId} = req.params;
@@ -64,6 +83,7 @@ export const getDoctorsByDepartment = async(req: any, res: any) => {
             path:'userId',
             select: 'fullName avatar'
         })
+        .populate('specialtyId','name')
         .populate({
             path: 'departmentId',
             select: 'name',
@@ -74,7 +94,7 @@ export const getDoctorsByDepartment = async(req: any, res: any) => {
             fullName: doc.userId?.fullName,
             avatar: doc.userId?.avatar,
             department: doc.departmentId?.name,
-            specialization: doc.specialization,
+            specialization: doc.specialtyId.name,
             nameSlug: doc.nameSlug,
         }));
 

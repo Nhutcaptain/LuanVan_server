@@ -9,7 +9,6 @@ export const getSummaryExamination = async(req: any, res: any) => {
                 path: 'doctorId',
                 select: 'fullName',
             }).sort({date: -1}).lean();
-        console.log(examinations)
         
         const result = examinations.map((exam: any) => ({
             id: exam._id,
@@ -43,7 +42,6 @@ export const getExaminationDetailById = async(req: any, res: any) => {
 
         const detailObj = detail.toObject() as any;
         detailObj.doctorName = (detail.doctorId as any)?.fullName || 'N/A';
-        console.log(detailObj);
         return res.json(detailObj);
     }catch(error){
         console.error(error);

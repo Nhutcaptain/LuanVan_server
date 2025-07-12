@@ -13,6 +13,7 @@ import appointmentRoute from './routes/appointment.route';
 import symptomRoute from './routes/symptom.route';
 import examinationRoute from './routes/examination.route';
 import locationRoute from './routes/location.route';
+import serviceRoute from './routes/service.route';
 import passport from 'passport';
 import doctorRoute from './routes/doctor.route';
 import './config/passport';
@@ -44,5 +45,6 @@ app.use('/api/appointment',appointmentRoute);
 app.use('/api/symptom', symptomRoute);
 app.use('/api/examination',examinationRoute);
 app.use('/api/location',locationRoute);
+app.use('/api/service',serviceRoute);
 
 export default app;

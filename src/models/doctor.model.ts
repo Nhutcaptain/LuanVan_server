@@ -34,6 +34,7 @@ const doctorSchema = new mongoose.Schema({
         default:[],
         trim: true
     },
+    examinationPrice: Number,
     experience: {
         type: [String],
         default: [],

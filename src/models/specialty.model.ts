@@ -22,6 +22,10 @@ const specialtySchema = new mongoose.Schema(
       unique: true,
       sparse: true,         // Mã chuyên khoa (nội bộ hoặc viết tắt, ví dụ: NOI-TIM)
       trim: true
+    },
+    serviceIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'Service'
     }
   },
   {

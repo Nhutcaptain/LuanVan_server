@@ -7,7 +7,8 @@ router.get('/getAll/:departmentId',departmentController.getDoctorsByDepartment);
 router.post('/createSpecialty',departmentController.createSpecialty);
 router.get('/specialty',departmentController.getAllSpecialty);
 router.get('/getAllDepartment', departmentController.getAllDepartment);
-router.get('/getAllSpecialtyByDepartmentId/:departmentId', departmentController.getAllSpecialtyByDepartmentId)
+router.get('/getAllSpecialtyByDepartmentId/:departmentId', departmentController.getAllSpecialtyByDepartmentId);
+router.put('/updateSpecialty/:id',departmentController.updateSpecialty);
 
 
 export default router;

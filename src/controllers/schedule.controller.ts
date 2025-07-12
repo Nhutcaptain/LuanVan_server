@@ -356,7 +356,6 @@ export const addOvertimeDay = async (req: any, res: any) => {
 export const getOvertime = async (req: any, res: any) => {
   try {
     const { doctorId } = req.params;
-    console.log(doctorId);
 
     if (!doctorId) {
       return res.status(400).json({ message: "Thiếu doctorId" });

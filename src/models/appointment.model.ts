@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const appointmentSchema = new mongoose.Schema({
     patientId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Patient',
+        ref: 'User',
         required: true
     },
     doctorId: {
@@ -27,6 +27,7 @@ const appointmentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Specialty',
     },
+    location: String,
     status: {
         type: String,
         enum: ['scheduled', 'completed', 'cancelled'],

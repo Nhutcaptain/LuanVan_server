@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { sendVerificationEmail } from '../utils/email';
 import { Verification } from '../models/verification.model';
 import jwt from 'jsonwebtoken';
+import { Patient } from '../models/patient.model';
 
 export const register = async (req: any, res: any) => {
   const { email, phone, password, ...rest } = req.body;
@@ -141,7 +142,6 @@ export const getMe = async (req:any, res:any) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select('-password -__v');
-    
     if (!user) {
       return res.status(404).json({ message: 'Người dùng không tồn tại.' });
     }

@@ -85,6 +85,24 @@ export const getAppointmentByPatientId = async(req: any, res: any) => {
   }
 }
 
+export const getAppointmentByDoctor = async(req: any, res: any) => {
+  try{
+    const {doctorId} = req.params;
+    if(!doctorId){
+      return res.status(400).json({message: 'Thiếu thông tin bác sĩ'});
+    }
+    const appointments = await Appointment.find({doctorId: doctorId})
+      .populate('patientId','fullName');
+    if(!appointments) {
+      return res.status(404).json({message: 'Không tìm thấy lịch đặt khám nào'});
+    }
+    return res.status(200).json(appointments);
+  }catch(error) {
+    console.error(error);
+    return res.status(500).json({message: 'Lỗi ở server'});
+  }
+}
+
 export const cancelAppointment = async(req: any, res: any) => {
   try{
     const {appointmentId} = req.params;
