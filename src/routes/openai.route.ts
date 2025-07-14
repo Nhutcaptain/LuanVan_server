@@ -5,6 +5,7 @@ import { askGoogleAI, convertHealthDataToText, detectIntent, detectIntentHealthR
 import { getGenerativeModel } from '../config/googleClient';
 import { getHealthStatusForAI } from '../controllers/patient.controller';
 import { generateDoctorPrompt } from '../controllers/doctorController';
+import { handleDiagnosis } from '../controllers/symptom.controller';
 const geminiController = require('../controllers/gemini.controller');
 
 const router: Router = express.Router();
@@ -52,7 +53,7 @@ export const addToUserChatHistory = (
 ): void => {
   const history = userChatHistory.get(userId) || [];
   history.push({ role, content });
-  userChatHistory.set(userId, history.slice(-10)); // giữ 10 tin nhắn gần nhất
+  userChatHistory.set(userId, history.slice(-50)); // giữ 10 tin nhắn gần nhất
 };
 
 export const getUserChatHistory = (userId: string) => {
@@ -94,6 +95,14 @@ ${healthDataText}
         healthData: healthDataText,
         response: text,
       });
+    } else if(intent === 'diagnosis') {
+        const response = await handleDiagnosis(userId, prompt);
+        addToUserChatHistory(userId, 'user', prompt);
+        addToUserChatHistory(userId, 'assistant', response.response);
+        if(response) {
+          return res.status(200).json({response: response.response});
+        }
+      return;
     } else if(intent !== 'health_review' && intent !== "normal") {
         const prompt = await generateDoctorPrompt(intent);
         if(!prompt) {
@@ -115,8 +124,12 @@ ${healthDataText}
       // Prompt bình thường
       const history = getUserChatHistory(userId);
       history.push({ role: 'user', content: prompt });
+      const contextPrompt = history.map(msg => {
+        return `${msg.role === 'user' ? 'Người dùng' : 'Trợ lý'}: ${msg.content}`;
+      }).join('\n');
+
       const model = getGenerativeModel();
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(contextPrompt);
       const response = await result.response;
       const answer = response.text();
 

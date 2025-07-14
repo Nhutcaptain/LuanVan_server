@@ -47,7 +47,7 @@ export const getAllSpecialtyByDepartmentId = async (req: any, res: any) => {
       return res.status(400).json({ message: "Thiếu departmentId trong yêu cầu." });
     }
 
-    const specialties = await Specialty.find({ departmentId })
+    const specialties = await Specialty.find({ departmentId }).populate('serviceIds').sort({name: 1});
 
     res.status(200).json(specialties);
   } catch (error) {

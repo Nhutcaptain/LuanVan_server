@@ -6,6 +6,7 @@ import fs from 'fs';
 import { diagnoseFromSymptoms, extractSymptoms } from '../config/azureOpenaiClient';
 import { adviseFromDiagnosis, generateFullHealthResponse } from '../config/services/gpt.service';
 import { getSuggestDoctors } from './doctorController';
+import { addToUserChatHistory } from '../routes/openai.route';
 
 // 📁 Đường dẫn đến thư mục chatbot
 const baseDir = path.join(__dirname, '..', '..', '..', 'chatbot');
@@ -115,21 +116,9 @@ export const getDiagnosis = async (req: Request, res: Response) => {
     const mlResult = await mlResponse.json();
     const mlDiagnosis = mlResult.prediction?.trim().toLowerCase();
 
-    // 4. Gọi GPT để chẩn đoán
-    // const gptDiagnosisRaw = await diagnoseFromSymptoms(description);
-    // const gptDiagnosis = gptDiagnosisRaw.trim().toLowerCase();
-
-    // // 5. So sánh và chọn kết quả
-    // let finalDiagnosis = gptDiagnosis;
-    // let source = "gpt";
-
-    // if (mlDiagnosis && mlDiagnosis !== "unknown" && mlDiagnosis === gptDiagnosis) {
-    //   finalDiagnosis = mlDiagnosis;
-    //   source = "ml-model";
-    // }
-
     // 6. Tạo phản hồi tự nhiên
     const fullResponse = await generateFullHealthResponse(mlDiagnosis, normalized);
+    addToUserChatHistory(userId, 'assistant',fullResponse )
     const doctors = await getSuggestDoctors(mlDiagnosis);
 
     return res.json({
@@ -147,4 +136,41 @@ export const getDiagnosis = async (req: Request, res: Response) => {
     console.error('Lỗi chẩn đoán:', error);
     return res.status(500).json({ error: 'Lỗi hệ thống' });
   }
+};
+
+export const handleDiagnosis = async (userId: string, description: string) => {
+  if (!userId || !description) {
+    throw new Error("Thiếu userId hoặc description");
+  }
+
+  // 1. Trích xuất triệu chứng từ mô tả
+  const extracted = await extractSymptoms(description);
+
+  // 2. Gộp triệu chứng cũ và mới
+  const updatedSymptoms = await updateUserSymptoms(userId, extracted);
+  const normalized = updatedSymptoms.join(", ");
+
+  // 3. Gọi ML model
+  const mlResponse = await fetch('http://localhost:5001/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symptoms: normalized })
+  });
+
+  const mlResult = await mlResponse.json();
+  const mlDiagnosis = mlResult.prediction?.trim().toLowerCase();
+
+  // 4. Tạo phản hồi tự nhiên
+  const fullResponse = await generateFullHealthResponse(mlDiagnosis, normalized);
+
+  return {
+    response: fullResponse,
+    diagnosis: mlDiagnosis,
+    source: 'ml-model',
+    symptoms: updatedSymptoms,
+    comparison: {
+      ml: mlDiagnosis,
+    },
+
+  };
 };

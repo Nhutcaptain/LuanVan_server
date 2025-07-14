@@ -25,7 +25,7 @@ const specialtySchema = new mongoose.Schema(
     },
     serviceIds: {
       type: [mongoose.Schema.Types.ObjectId],
-      ref: 'Service'
+      ref: 'Services'
     }
   },
   {

@@ -55,24 +55,22 @@ export const adviseFromDiagnosis = async (diagnosis: string): Promise<string> =>
 
 export const generateFullHealthResponse = async (diagnosis: string, symptoms: string): Promise<string> => {
   const prompt = `
-  Bạn là bác sĩ AI. Dựa trên triệu chứng của bệnh nhân và chẩn đoán bệnh, hãy phản hồi bằng một đoạn tư vấn tự nhiên, thân thiện.
+Bạn là bác sĩ AI. Dựa trên triệu chứng của bệnh nhân và chẩn đoán bệnh, hãy phản hồi bằng một đoạn tư vấn tự nhiên, thân thiện, và sử dụng **Markdown** để làm nổi bật nội dung.
 
-  Thông tin:
-  - Triệu chứng: "${symptoms}"
-  - Chẩn đoán: "${diagnosis}"
+Thông tin:
+- Triệu chứng: "${symptoms}"
+- Chẩn đoán: "${diagnosis}"
 
-  Yêu cầu:
-  - Mở đầu bằng nhận định: "Bạn có vẻ đang bị..." + tên bệnh
-  - Đưa ra lời khuyên về nghỉ ngơi, ăn uống, theo dõi triệu chứng...
-  - Văn phong ngắn gọn, dễ hiểu, không vượt quá 6 dòng
-  - Không dùng thuật ngữ chuyên môn phức tạp
-  - Không đề cập đến thuốc cụ thể
+Yêu cầu:
+- Mở đầu bằng nhận định: "**Bạn có vẻ đang bị...**" + tên bệnh (in đậm)
+- Đưa ra lời khuyên về nghỉ ngơi, ăn uống, theo dõi triệu chứng...
+- Văn phong ngắn gọn, dễ hiểu, không vượt quá 6 dòng
+- Không dùng thuật ngữ chuyên môn phức tạp
+- Không đề cập đến thuốc cụ thể
+- Sử dụng danh sách gạch đầu dòng nếu phù hợp
 
-  Ví dụ đầu ra:
-  "Bạn có vẻ đang bị cúm mùa. Bạn nên nghỉ ngơi nhiều, uống nước ấm, tránh tiếp xúc với người khác và ăn các món dễ tiêu. Nếu sốt kéo dài hoặc cảm thấy khó thở, hãy đi khám bác sĩ."
-
-  Viết bằng tiếng Việt.
-  `;
+Trả lời bằng **tiếng Việt**, với **định dạng Markdown**.
+`;
 
   const response = await client.path("/chat/completions").post({
     body: {

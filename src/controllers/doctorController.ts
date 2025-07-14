@@ -281,14 +281,15 @@ export const generateDoctorPrompt = async (doctorSlug: string) => {
     const doctor = await Doctor.findOne({ nameSlug: doctorSlug })
       .populate({
         path: 'userId',
-        select: 'fullName _id'
+        select: 'fullName _id dateOfBirth'
       })
       .populate('specialtyId', 'name')
       .populate('departmentId', 'name') as unknown as IPopulatedDoctor;
 
     if (!doctor) return null;
 
-    const overtimeSchedule = await OvertimeSchedule.findOne({ doctorId: doctor.userId?._id });
+    const overtimeSchedule = await OvertimeSchedule.findOne({ doctorId: doctor.userId?._id })
+    ;
 
     // Biến dữ liệu thành văn bản
     const fullName = doctor.userId?.fullName;
@@ -296,6 +297,17 @@ export const generateDoctorPrompt = async (doctorSlug: string) => {
     const specialty = (doctor.specialtyId as any)?.name;
     const experience = doctor.experience;
     const certificate = doctor.certificate;
+    const dob = doctor.userId?.dateOfBirth;
+    let age = 'Không rõ';
+    if (dob) {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      age = (today.getFullYear() - birthDate.getFullYear()).toString();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age = (parseInt(age) - 1).toString(); // chưa tới sinh nhật trong năm
+      }
+    }
 
     const scheduleText = overtimeSchedule?.weeklySchedule
       .filter(day => day.isActive)
@@ -310,6 +322,7 @@ Dưới đây là thông tin về một bác sĩ. Hãy giúp tôi viết lại �
 
 **Thông tin bác sĩ:**
 - Họ tên: ${fullName}
+- Tuổi: ${age}
 - Khoa: ${department}
 - Chuyên khoa: ${specialty}
 - Kinh nghiệm: ${experience || 'Không rõ'}
