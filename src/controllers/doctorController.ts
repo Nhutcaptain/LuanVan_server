@@ -105,6 +105,26 @@ export const getDoctor = async (req: any, res: any) => {
     }
 }
 
+export const getByDoctorId = async(req: any, res: any) => {
+   try{
+    const {id} = req.params;
+    if(!id) {
+      return res.status(400).json({message: 'Thiếu thông tin'});
+    }
+    const doctors = await Doctor.findById(id)
+      .populate('userId', 'fullName email phone')
+      .populate('specialtyId','name _id');
+    ;
+    if(!doctors) {
+      return res.status(404).json({message: 'Không có bác sĩ nào thuộc khoa này'});
+    }
+    return res.status(200).json(doctors);
+  }catch(error) {
+    console.error(error);
+    return res.status(500).json({message: 'Lỗi ở server'});
+  }
+}
+
 export const getAllDoctor = async (req: any, res: any) => {
     try {
         const doctors = await Doctor.find().populate({

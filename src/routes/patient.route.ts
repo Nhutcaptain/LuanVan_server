@@ -8,5 +8,6 @@ router.post('/create',patientController.createHealthStatus);
 router.get('/get/:id',patientController.getHealthStatus);
 router.post('/getPatientWithName',patientController.getPatientWithName);
 router.post('/postExamination',patientController.createExamination);
+router.get('/getPatientWithId/:id',patientController.getPatientWithId);
 
 export default router;

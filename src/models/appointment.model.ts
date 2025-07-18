@@ -11,6 +11,7 @@ const appointmentSchema = new mongoose.Schema({
         ref: 'Doctor',
         required: true
     },
+    queueNumber: Number,
     appointmentDate: {
         type: Date,
         required: true,
@@ -30,7 +31,7 @@ const appointmentSchema = new mongoose.Schema({
     location: String,
     status: {
         type: String,
-        enum: ['scheduled', 'completed', 'cancelled'],
+        enum: ['scheduled', 'completed', 'cancelled', 'examining', 'waiting_result'],
         default: 'scheduled'
     },
     reason:{

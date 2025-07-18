@@ -82,6 +82,30 @@ export const getPatientWithName = async(req: any, res: any) => {
     }
 }
 
+export const getPatientWithId = async(req: any, res: any) => {
+        try {
+            const {id} = req.params;
+        if (!id) {
+            return res.status(400).json({
+                message: 'Vui lòng cung cấp đầy đủ họ tên và số điện thoại.'
+            });
+        }
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy bệnh nhân.' });
+        }
+
+        const patient = await Patient.findOne({ userId: user._id }).populate('userId');
+
+        return res.status(200).json(patient);
+
+    }catch(error) {
+        console.error('Lỗi khi lấy bệnh nhân', error);
+        return res.status(500).json({message: 'Lỗi từ phía server', error});
+    }
+}
+
 export const createExamination = async(req: any, res: any) => {
     try{
         const examinationData = req.body;

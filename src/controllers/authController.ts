@@ -5,6 +5,8 @@ import { sendVerificationEmail } from '../utils/email';
 import { Verification } from '../models/verification.model';
 import jwt from 'jsonwebtoken';
 import { Patient } from '../models/patient.model';
+import { Doctor } from '../models/doctor.model';
+import { getDoctorIdByUserId } from './doctorController';
 
 export const register = async (req: any, res: any) => {
   const { email, phone, password, ...rest } = req.body;
@@ -117,6 +119,11 @@ export const login = async (req: any, res: any) => {
     return res.status(400).json({ message: 'Email hoặc mật khẩu không đúng.' });
   }
 
+  let doctorId;
+  if(user.role === 'doctor'){
+   doctorId = await Doctor.findOne({userId: user._id});
+  }
+
   // Tạo JWT token
   const jwtToken = jwt.sign(
     { userId: user._id, role: user.role },
@@ -130,6 +137,7 @@ export const login = async (req: any, res: any) => {
     fullName: user.fullName,
     email: user.email,
     role: user.role,
+    doctorId: doctorId ? doctorId._id : null,
   });
 };
 

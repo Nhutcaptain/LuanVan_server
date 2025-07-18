@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.post('/create',doctorController.createDoctor);
 router.get('/get',authenticate, doctorController.getDoctor)
+router.get('/getByDoctorId/:id',doctorController.getByDoctorId);
 router.get('/getAll',doctorController.getAllDoctor);
 router.put('/update/:id',doctorController.updateDoctor);
 router.get('/getDoctorBySlug',doctorController.getDoctorBySlug);

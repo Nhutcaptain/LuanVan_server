@@ -90,7 +90,7 @@ export const getDoctorsByDepartment = async(req: any, res: any) => {
         });
 
         const simplified = doctors.map((doc: any) => ({
-            _id: doc.userId?._id,
+            _id: doc._id,
             fullName: doc.userId?.fullName,
             avatar: doc.userId?.avatar,
             department: doc.departmentId?.name,
