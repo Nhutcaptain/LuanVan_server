@@ -9,7 +9,8 @@ router.put('/cancelAppointment/:appointmentId', appointmentController.cancelAppo
 router.put('/completeAppointment/:appointmentId', appointmentController.completeAppointment);
 router.get('/getAppointmentsByDoctor/:doctorId',appointmentController.getAppointmentByDoctor);
 router.get('/appointments/today/:doctorId', appointmentController.getTodayAppointments);
-router.put('/:id/status',appointmentController.updateStatusAppointment)
+router.put('/:id/status',appointmentController.updateStatusAppointment);
+router.get('/testOrder/:id', appointmentController.getTestOrder);
 
 
 export default router;

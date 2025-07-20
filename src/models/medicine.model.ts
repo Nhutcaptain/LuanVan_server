@@ -5,7 +5,8 @@ const medicineSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
+        unique: true,
     },
     stock: {
         type: Number,
@@ -17,6 +18,7 @@ const medicineSchema = new mongoose.Schema({
     },
     expireDate: Date,
     warningThreshold: Number,
+    price: Number,
     description: {
         type: String,
         trim: true

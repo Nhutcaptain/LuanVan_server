@@ -41,6 +41,10 @@ const appointmentSchema = new mongoose.Schema({
         email: Boolean,
         sms: Boolean,
     },
+    examinationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Examination'
+    },
 }, { timestamps: true });
 
 export const Appointment = mongoose.model('Appointment', appointmentSchema);

@@ -113,7 +113,9 @@ export const getByDoctorId = async(req: any, res: any) => {
     }
     const doctors = await Doctor.findById(id)
       .populate('userId', 'fullName email phone')
-      .populate('specialtyId','name _id');
+      .populate('specialtyId','name _id')
+      .populate('departmentId', '_id name')
+      ;
     ;
     if(!doctors) {
       return res.status(404).json({message: 'Không có bác sĩ nào thuộc khoa này'});
@@ -376,7 +378,7 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
         path: 'userId',
         select: 'fullName' // chỉ lấy tên từ userId
       })
-      .select('_id userId examinationPrice'); // chỉ lấy _id và userId (đã populate)
+      .select('_id userId overtimeExaminationPrice officeExaminationPrice'); // chỉ lấy _id và userId (đã populate)
 
     // Trả về dữ liệu gồm _id của bác sĩ và tên
     const result = doctors.map(doc  => {
@@ -384,7 +386,8 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
       return {
         _id: doc._id,
         name: user?.fullName || 'Không rõ tên',
-        examinationPrice: doc.examinationPrice
+        overtimeExaminationPrice: doc.overtimeExaminationPrice,
+        officeExaminationPrice: doc.officeExaminationPrice,
       };
     });
 

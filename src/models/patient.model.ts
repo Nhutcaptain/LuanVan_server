@@ -8,7 +8,6 @@ const patientSchema = new mongoose.Schema({
     },
      patientCode: {
         type: String,
-        required: true,
         unique: true,
         match: [/^\d{8}$/, 'Patient code must be exactly 8 digits']
     },

@@ -11,10 +11,15 @@ export const initSocket = (server: any) => {
   });
 
   io.on('connection', (socket) => {
+    socket.on('join-room', (room) => {
+      socket.join(room);
+      console.log(`Client ${socket.id} joined room ${room}`);
+    });
     console.log('🟢 New client connected:', socket.id);
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       console.log('🔴 Client disconnected:', socket.id);
+      console.log('Disconnect reason: ', reason)
     });
   });
 
@@ -27,3 +32,22 @@ export const getIO = (): Server => {
   }
   return io;
 };
+
+export const notifyExaminationUpdate = (examinationId: string, data: any) => {
+  const io = getIO();
+  io.to(`examination_${examinationId}`).emit('examination-update', {
+    examinationId,
+    data
+  });
+};
+
+export const handleTestOrderUpdate = (doctorId: string, patientId: string, testOrders: any) => {
+  const room = `doctor-${doctorId}`;
+    io.to(room).emit(
+      'test-order-updated', 
+      {
+        testOrders,
+        patientId
+      }
+    );
+  };

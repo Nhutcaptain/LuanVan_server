@@ -16,6 +16,7 @@ import locationRoute from './routes/location.route';
 import serviceRoute from './routes/service.route';
 import passport from 'passport';
 import doctorRoute from './routes/doctor.route';
+import medicineRoute from './routes/medicine.route';
 import './config/passport';
 
 const app = express();
@@ -46,5 +47,6 @@ app.use('/api/symptom', symptomRoute);
 app.use('/api/examination',examinationRoute);
 app.use('/api/location',locationRoute);
 app.use('/api/service',serviceRoute);
+app.use('/api/medicine',medicineRoute);
 
 export default app;

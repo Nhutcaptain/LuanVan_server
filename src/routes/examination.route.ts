@@ -8,5 +8,6 @@ router.get('/getDetail/:id',examinationController.getExaminationDetailById);
 router.post('/temp_save',examinationController.temp_save);
 router.post('/temp_get',examinationController.temp_get);
 router.put('/update/:id',examinationController.updateExamination);
+router.post('/submitTestResult',examinationController.submitTestResult);
 
 export default router;
