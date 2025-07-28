@@ -8,7 +8,7 @@ export const getSummaryExamination = async (req: any, res: any) => {
     const { patientId } = req.params;
     console.log(patientId);
     const examinations = await Examination.find({ patientId })
-      .select("doctorId date assessment")
+      .select("doctorId date assessment isOvertimeAppointment")
       .populate({
         path: "doctorId",
         populate: {
@@ -28,6 +28,7 @@ export const getSummaryExamination = async (req: any, res: any) => {
         date: exam.date,
         doctorName: doctorUser?.fullName || "N/A",
         assessment: exam.assessment,
+        isOvertimeAppointment: exam.isOvertimeAppointment
       };
     });
 
@@ -54,7 +55,8 @@ export const getExaminationDetailById = async (req: any, res: any) => {
     .populate({
         path: "testOrders.serviceId", 
         select: "name price", 
-      });
+      })
+    .populate('patientId', 'fullName dateOfBirth address gender')
 
     if (!detail) {
       return res.status(404).json({ message: "Không tìm thấy phiếu khám." });
@@ -155,7 +157,6 @@ export const submitTestResult = async (req: any, res: any) => {
       "testOrders.serviceId": new mongoose.Types.ObjectId(serviceId),
       "testOrders.status": "ordered",
     });
-    console.log(examination);
 
     if (!examination) {
       return res
@@ -177,10 +178,6 @@ export const submitTestResult = async (req: any, res: any) => {
     // Cập nhật trạng thái và kết quả
     examination.testOrders[testOrderIndex].status = "completed";
     examination.testOrders[testOrderIndex].resultFileUrl = resultFileUrl;
-
-    // // Cập nhật trạng thái chung của examination nếu cần
-    // const allCompleted = examination.testOrders.every(o => o.status === 'completed');
-    // examination.status = allCompleted ? 'completed' : 'waiting_result';
 
     await examination.save();
     notifyExaminationUpdate(examination._id.toString(), {
@@ -212,3 +209,75 @@ export const getTestOrderByAppointment = async(req: any, res: any) => {
     return res.status(500).json({message: 'Lỗi server'});
   }
 }
+export const getExaminationsByDate = async (req: any, res: any) => {
+  try {
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    if (!doctorId || !date) {
+      return res.status(400).json({ message: "Missing doctorId or date" });
+    }
+
+    const inputDate = new Date(date as string); // yyyy-mm-dd
+    const startOfDay = new Date(inputDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(inputDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const examinations = await Examination.find({
+      doctorId,
+      date: { $gte: startOfDay, $lte: endOfDay }
+    })
+      .populate("patientId", "fullName _id") 
+      .sort({ date: 1 });
+
+    res.status(200).json(examinations);
+  } catch (error) {
+    console.error("Error fetching examinations:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getExaminationsByMonth = async (req: any, res: any) => {
+  try {
+    const { doctorId } = req.params;
+    const { month } = req.query; // Ex: "2025-07"
+
+    if (!doctorId || !month) {
+      return res.status(400).json({ message: "Missing doctorId or month" });
+    }
+
+    // Parse year and month
+    const [yearStr, monthStr] = (month as string).split("-");
+    const year = parseInt(yearStr);
+    const monthIndex = parseInt(monthStr) - 1; // JS tháng bắt đầu từ 0
+
+    if (isNaN(year) || isNaN(monthIndex)) {
+      return res.status(400).json({ message: "Invalid month format, expected YYYY-MM" });
+    }
+
+    const startOfMonth = new Date(year, monthIndex, 1, 0, 0, 0);
+    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999); // ngày cuối tháng
+
+    const examinations = await Examination.find({
+      doctorId,
+      date: { $gte: startOfMonth, $lte: endOfMonth },
+    })
+      .populate("patientId", "fullName _id")
+      .sort({ date: 1 });
+      console.log(examinations)
+
+    const stats = {
+      examining: examinations.filter((e) => e.status === "examining").length,
+      waiting_result: examinations.filter((e) => e.status === "waiting_result").length,
+      completed: examinations.filter((e) => e.status === "completed").length,
+      total: examinations.length,
+    };
+
+    res.status(200).json({ examinations, stats });
+  } catch (error) {
+    console.error("Error fetching examinations by month:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

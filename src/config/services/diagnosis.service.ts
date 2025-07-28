@@ -1,0 +1,15 @@
+export const diagnosisToDepartmentMap: Record<string, string> = {
+  "Viêm họng": "Tai Mũi Họng",
+  "viêm xoan": "Tai Mũi Họng",
+  "Viêm Amidan": "Tai Mũi Họng",
+  "Cảm lạnh": "Nội Tổng Quát",
+  "Sốt xuất huyết": "Truyền Nhiễm",
+  "Viêm phổi": "Hô Hấp",
+  "Viêm dạ dày": "Tiêu Hóa",
+  "Rối loạn tiền đình": "Thần Kinh",
+  "Cúm": "Nội Tổng Quát",
+  "Covid-19": "Hô Hấp",
+  "Viêm da cơ địa": "Da Liễu",
+  "Rối loạn tiêu hoá": "Tiêu hoá",
+  "Trào ngược dạ dày": "Tiêu hoá",
+};

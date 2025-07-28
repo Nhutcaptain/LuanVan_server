@@ -9,5 +9,7 @@ router.post('/temp_save',examinationController.temp_save);
 router.post('/temp_get',examinationController.temp_get);
 router.put('/update/:id',examinationController.updateExamination);
 router.post('/submitTestResult',examinationController.submitTestResult);
+router.get('/getExaminationByDate/:doctorId', examinationController.getExaminationsByDate);
+router.get('/getExaminationByMonth/:doctorId', examinationController.getExaminationsByMonth);
 
 export default router;

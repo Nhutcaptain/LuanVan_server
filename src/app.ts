@@ -17,6 +17,7 @@ import serviceRoute from './routes/service.route';
 import passport from 'passport';
 import doctorRoute from './routes/doctor.route';
 import medicineRoute from './routes/medicine.route';
+import convertRoute from './routes/convert.route';
 import './config/passport';
 
 const app = express();
@@ -48,5 +49,6 @@ app.use('/api/examination',examinationRoute);
 app.use('/api/location',locationRoute);
 app.use('/api/service',serviceRoute);
 app.use('/api/medicine',medicineRoute);
+app.use('/api/convert', convertRoute);
 
 export default app;

@@ -4,6 +4,10 @@ const defaultDepartmentSchema = new mongoose.Schema({
     name: String,
     id: String,
     description: String,
+    serviceIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Services',
+    }],
 
 },{timestamps: true});
 

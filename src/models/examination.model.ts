@@ -49,7 +49,7 @@ const examinationSchema = new mongoose.Schema(
   {
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Patient",
+      ref: "User",
       required: true,
     },
     doctorId: {

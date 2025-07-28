@@ -7,6 +7,7 @@ import { diagnoseFromSymptoms, extractSymptoms } from '../config/azureOpenaiClie
 import { adviseFromDiagnosis, generateFullHealthResponse } from '../config/services/gpt.service';
 import { getSuggestDoctors } from './doctorController';
 import { addToUserChatHistory } from '../routes/openai.route';
+import { diagnosisToDepartmentMap } from '../config/services/diagnosis.service';
 
 // 📁 Đường dẫn đến thư mục chatbot
 const baseDir = path.join(__dirname, '..', '..', '..', 'chatbot');
@@ -145,6 +146,7 @@ export const handleDiagnosis = async (userId: string, description: string) => {
 
   // 1. Trích xuất triệu chứng từ mô tả
   const extracted = await extractSymptoms(description);
+  console.log(extracted);
 
   // 2. Gộp triệu chứng cũ và mới
   const updatedSymptoms = await updateUserSymptoms(userId, extracted);
@@ -154,23 +156,41 @@ export const handleDiagnosis = async (userId: string, description: string) => {
   const mlResponse = await fetch('http://localhost:5001/predict', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symptoms: normalized })
+    body: JSON.stringify({ symptoms: extracted })
   });
 
   const mlResult = await mlResponse.json();
-  const mlDiagnosis = mlResult.prediction?.trim().toLowerCase();
+   const predictions = mlResult?.predictions || [];
+   console.log("Các bệnh được chẩn đoán",predictions)
+
+    if (predictions.length === 0) {
+      return {
+        response: "Tôi chưa thể đưa ra chẩn đoán với triệu chứng bạn cung cấp.",
+        diagnosis: null,
+        source: 'ml-model',
+        symptoms: updatedSymptoms,
+        comparison: {},
+        doctors: []
+      };
+    }
+
+    const topPrediction = predictions[0];
+    const topDiagnosis = topPrediction.diagnosis.toLowerCase();
 
   // 4. Tạo phản hồi tự nhiên
-  const fullResponse = await generateFullHealthResponse(mlDiagnosis, normalized);
+  const fullResponse = await generateFullHealthResponse(predictions, normalized);
+  const department = diagnosisToDepartmentMap[topPrediction.diagnosis] || null;
 
   return {
     response: fullResponse,
-    diagnosis: mlDiagnosis,
+    diagnosis: topDiagnosis,
+    department,
     source: 'ml-model',
     symptoms: updatedSymptoms,
     comparison: {
-      ml: mlDiagnosis,
+      ml: topDiagnosis,
     },
 
   };
 };
+

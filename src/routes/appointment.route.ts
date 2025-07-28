@@ -11,6 +11,7 @@ router.get('/getAppointmentsByDoctor/:doctorId',appointmentController.getAppoint
 router.get('/appointments/today/:doctorId', appointmentController.getTodayAppointments);
 router.put('/:id/status',appointmentController.updateStatusAppointment);
 router.get('/testOrder/:id', appointmentController.getTestOrder);
+router.post('/stopAppointments/:doctorId', appointmentController.stopAppointments)
 
 
 export default router;

@@ -42,21 +42,18 @@ export const detectIntentHealthReview = async (userInput: string) => {
   const model = getGenerativeModel();
 
   const prompt = `
-Bạn là một AI chuyên phân loại ý định người dùng.
+Bạn là một AI chuyên phân loại ý định người dùng. Hãy đọc câu sau và xác định xem người dùng muốn gì:
 
-1. Hãy đọc câu sau và xác định xem người dùng có đang muốn đánh giá tình trạng sức khoẻ tổng thể hay không, 
-2. hoặc nếu người dùng muốn hỏi thông tin về một bác sĩ nào đó, Hay câu ví dụ: Hãy cho tôi biết thông tin về bác sĩ Lục Tỷ | hãy giới thiệu cho tôi về bác sĩ Lý Huỳnh
-Nếu là hỏi bác sĩ thì trả lời về name-slug của bác sĩ, ví dụ: Hãy cho tôi biết thông tin của bác sĩ Lục Tỷ, thì trả lời: "bs-luc-ty"
-3. Ví dụ câu đó là: chào bạn, bạn có thể giúp mình đánh giá sức khoẻ tổng quát được không | các chỉ số sức khoẻ của tôi thế nào
+1. Nếu người dùng hỏi về việc **đánh giá sức khoẻ tổng thể**, trả lời: "health_review"
+   Ví dụ: "Hãy đánh giá tình trạng sức khỏe của tôi", "Các chỉ số của tôi có ổn không?"
 
-4. Hoặc xác định xem yêu cầu nó có phải là yêu cầu chẩn đoán bệnh không, ví dụ: Tôi bị tiêu chải, tôi bị đau đầu quá thì tôi bị bệnh gì.
-  Nếu người dùng yêu cầu khác mà không phải chẩn đoán, ví dụ "Bạn có thể giúp mình đọc lại tên bệnh không" hay "Bạn có thể đưa ra lời khuyên kỹ
-  hơn giúp mình được không" thì trả về "normal"
+2. Nếu người dùng **yêu cầu chẩn đoán bệnh**, ví dụ: "Tôi bị đau đầu và buồn nôn", trả lời: "diagnosis"
 
+3. Nếu người dùng hỏi thông tin về một bác sĩ cụ thể, ví dụ: "Hãy cho tôi biết thông tin về bác sĩ Lý Huỳnh", thì trả về slug của bác sĩ, ví dụ: "bs-ly-huynh"
 
-- Nếu hỏi về yêu cầu chẩn đoán bệnh, trả lời duy nhất: "diagnosis" 
-- Nếu là hỏi về tình trạng sức khoẻ, trả lời duy nhất: "health_review"
-- Nếu không, trả lời duy nhất: "normal"
+4. Nếu người dùng hỏi **hướng dẫn cách đặt lịch khám**, ví dụ: "Làm sao để đặt lịch với bác sĩ", "Các bước đặt lịch hẹn", trả về: "booking_guide"
+
+5. Nếu không rơi vào các trường hợp trên, trả về: "normal"
 
 Câu: "${userInput}"
   `.trim();
@@ -67,6 +64,58 @@ Câu: "${userInput}"
 
   return text;
 };
+
+
+const diagnosisToDepartmentMap: Record<string, string> = {
+  "Viêm họng": "Tai Mũi Họng",
+  "Viêm Amidan": "Tai Mũi Họng",
+  "Cảm lạnh": "Nội Tổng Quát",
+  "Sốt xuất huyết": "Truyền Nhiễm",
+  "Viêm phổi": "Hô Hấp",
+  "Viêm dạ dày": "Tiêu Hóa",
+  "Rối loạn tiền đình": "Thần Kinh",
+  "Cúm": "Nội Tổng Quát",
+  "Covid-19": "Hô Hấp",
+  "Viêm da cơ địa": "Da Liễu",
+};
+
+export const getDiagnosisWithAI = async (symptoms: string) => {
+  const model = getGenerativeModel();
+
+  const prompt = `
+Bạn là một AI bác sĩ chuyên chẩn đoán bệnh.
+
+Dựa trên các triệu chứng sau, hãy đưa ra chẩn đoán có thể xảy ra và lời khuyên ban đầu:
+
+Triệu chứng: ${symptoms}
+
+Vui lòng cung cấp thông tin theo định dạng Markdown, bao gồm:
+- **Chẩn đoán có thể xảy ra:** Liệt kê các bệnh lý có khả năng cao nhất.
+- **Giải thích ngắn gọn:** Nêu lý do cho từng chẩn đoán.
+- **Lời khuyên ban đầu:** Các bước nên làm tiếp theo.
+- **Lưu ý quan trọng:** Nhắc nhở người dùng rằng đây chỉ là chẩn đoán sơ bộ và không thay thế cho lời khuyên y tế chuyên nghiệp.
+  `.trim();
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const markdownText = response.text();
+
+  // Tách các chẩn đoán từ markdown, ví dụ dòng bắt đầu bằng số thứ tự
+  const diagnosisMatches = markdownText.match(/^1\.\s\*\*(.+?)\*\*/gm);
+  const diagnosisList = diagnosisMatches?.map(line => line.replace(/^1\.\s\*\*|\*\*/g, '').trim()) || [];
+
+  // Map sang danh sách các khoa
+  const departments = diagnosisList.map(diagnosis => {
+    return diagnosisToDepartmentMap[diagnosis] || "Chưa xác định";
+  });
+
+  return {
+    markdown: markdownText,
+    diagnosisList,
+    departments,
+  };
+};
+
 
 export const convertHealthDataToText = (data: any): string => {
   const extract = (obj: any, label: string) => {

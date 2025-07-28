@@ -1,11 +1,12 @@
 import express, { Request, Response, Router } from 'express';
 import { askGPT, extractSymptoms } from '../config/azureOpenaiClient';
 import { fetchAllUsers } from '../config/services/user.service';
-import { askGoogleAI, convertHealthDataToText, detectIntent, detectIntentHealthReview } from '../config/services/googleAIService';
+import { askGoogleAI, convertHealthDataToText, detectIntent, detectIntentHealthReview, getDiagnosisWithAI } from '../config/services/googleAIService';
 import { getGenerativeModel } from '../config/googleClient';
 import { getHealthStatusForAI } from '../controllers/patient.controller';
-import { generateDoctorPrompt } from '../controllers/doctorController';
+import { generateDoctorPrompt, getDoctorsByDepartmentName } from '../controllers/doctorController';
 import { handleDiagnosis } from '../controllers/symptom.controller';
+import { handleBookingGuide } from '../services/generateAI';
 const geminiController = require('../controllers/gemini.controller');
 
 const router: Router = express.Router();
@@ -63,86 +64,96 @@ export const getUserChatHistory = (userId: string) => {
 router.post("/generate", async (req: any, res: any) => {
   try {
     const { prompt, userId } = req.body;
-    
+
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
     const intent = await detectIntentHealthReview(prompt);
-    if (intent === 'health_review') {
-      const latestHealth = await getHealthStatusForAI(userId)
+    const model = getGenerativeModel();
 
-      if (!latestHealth) {
-        return res.status(404).json({ error: "Không có dữ liệu sức khỏe" });
-      }
+    switch (intent) {
+      case "health_review":
+        const latestHealth = await getHealthStatusForAI(userId);
+        if (!latestHealth) {
+          return res.status(404).json({ error: "Không có dữ liệu sức khỏe" });
+        }
 
-      const healthDataText = convertHealthDataToText(latestHealth);
-
-      const healthPrompt = `
+        const healthDataText = convertHealthDataToText(latestHealth);
+        const healthPrompt = `
 Tôi là một bác sĩ. Dưới đây là dữ liệu sức khỏe của bệnh nhân. Hãy phân tích từng chỉ số, nêu rõ những gì bình thường hoặc bất thường, cảnh báo nếu có và đưa ra lời khuyên.
 
-${healthDataText}
-      `.trim();
+${healthDataText}`.trim();
 
-      const model = getGenerativeModel();
-      const result = await model.generateContent(healthPrompt);
-      const response = await result.response;
-      const text = response.text();
-      addToUserChatHistory(userId, 'user', 'Phân tích dữ liệu sức khỏe của tôi');
-      addToUserChatHistory(userId, 'assistant', text);
+        const healthResult = await model.generateContent(healthPrompt);
+        const healthText = (await healthResult.response).text();
 
-      return res.status(200).json({
-        healthData: healthDataText,
-        response: text,
-      });
-    } else if(intent === 'diagnosis') {
-        const response = await handleDiagnosis(userId, prompt);
-        addToUserChatHistory(userId, 'user', prompt);
-        addToUserChatHistory(userId, 'assistant', response.response);
-        if(response) {
-          return res.status(200).json({response: response.response});
+        await addToUserChatHistory(userId, 'user', 'Phân tích dữ liệu sức khỏe của tôi');
+        await addToUserChatHistory(userId, 'assistant', healthText);
+
+        return res.status(200).json({ healthData: healthDataText, response: healthText });
+
+      case "diagnosis":
+        const diagnosisResult = await handleDiagnosis(userId, prompt);
+
+        let doctors;
+        if (diagnosisResult.department) {
+          doctors = await getDoctorsByDepartmentName(diagnosisResult.department);
         }
-      return;
-    } else if(intent !== 'health_review' && intent !== "normal") {
-        const prompt = await generateDoctorPrompt(intent);
-        if(!prompt) {
+
+        await addToUserChatHistory(userId, 'user', prompt);
+        await addToUserChatHistory(userId, 'assistant', diagnosisResult.response);
+
+        return res.status(200).json({
+          response: diagnosisResult.response,
+          doctors
+        });
+      
+      case "booking_guide":
+        const guide = await handleBookingGuide(userId, prompt);
+        return res.status(200).json({response: guide});
+
+      case "normal":
+        // Dùng lịch sử để trả lời thông thường
+        const history = getUserChatHistory(userId);
+        history.push({ role: 'user', content: prompt });
+
+        const contextPrompt = history.map(msg =>
+          `${msg.role === 'user' ? 'Người dùng' : 'Trợ lý'}: ${msg.content}`
+        ).join('\n');
+
+        const normalResult = await model.generateContent(contextPrompt);
+        const normalText = (await normalResult.response).text();
+
+        await addToUserChatHistory(userId, 'user', prompt);
+        await addToUserChatHistory(userId, 'assistant', normalText);
+
+        return res.status(200).json({ response: normalText });
+
+      default:
+        // Trường hợp hỏi về bác sĩ cụ thể
+        const docPrompt = await generateDoctorPrompt(intent);
+        if (!docPrompt) {
           return res.status(404).json({ error: "Không có dữ liệu bác sĩ" });
         }
 
-        const model = getGenerativeModel();
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        addToUserChatHistory(userId, 'user', 'Phân tích dữ liệu sức khỏe của tôi');
-        addToUserChatHistory(userId, 'assistant', text);
+        const docResult = await model.generateContent(docPrompt);
+        const docText = (await docResult.response).text();
+
+        await addToUserChatHistory(userId, 'user', prompt);
+        await addToUserChatHistory(userId, 'assistant', docText);
 
         return res.status(200).json({
-          healthData: prompt,
-          response: text,
-      });
-    } else {
-      // Prompt bình thường
-      const history = getUserChatHistory(userId);
-      history.push({ role: 'user', content: prompt });
-      const contextPrompt = history.map(msg => {
-        return `${msg.role === 'user' ? 'Người dùng' : 'Trợ lý'}: ${msg.content}`;
-      }).join('\n');
-
-      const model = getGenerativeModel();
-      const result = await model.generateContent(contextPrompt);
-      const response = await result.response;
-      const answer = response.text();
-
-      addToUserChatHistory(userId, 'user', prompt);
-      addToUserChatHistory(userId, 'assistant', answer);
-
-      return res.status(200).json({ response: answer });
+          healthData: docPrompt,
+          response: docText
+        });
     }
   } catch (error) {
     console.error("Error generating content:", error);
     res.status(500).json({ error: "Failed to generate content" });
   }
 });
+
 
 router.post('/exploreDoctorInfo',geminiController.exploreDoctorInfo);
 

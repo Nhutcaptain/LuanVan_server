@@ -9,5 +9,6 @@ router.get('/get/:id',patientController.getHealthStatus);
 router.post('/getPatientWithName',patientController.getPatientWithName);
 router.post('/postExamination',patientController.createExamination);
 router.get('/getPatientWithId/:id',patientController.getPatientWithId);
+router.put('/updateHealthStatus/:userId',patientController.updateHealthStatus);
 
 export default router;

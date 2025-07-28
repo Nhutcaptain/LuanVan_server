@@ -252,7 +252,7 @@ export const getDoctorBySlug = async(req: any, res: any) => {
             return res.status(404).json({message:'Không tìm thấy bác sĩ'});
         }
 
-        const schedule = await WeeklySchedule.findOne({doctorId: doctor.userId._id})
+        const schedule = await WeeklySchedule.findOne({doctorId: doctor._id})
             .populate('schedule.shiftIds','name startTime endTime locationId');
         ;
 
@@ -395,6 +395,58 @@ export const getDoctorBySpecialtyId = async( req: any, res: any) => {
   } catch (error) {
     console.error('Lỗi khi lấy danh sách bác sĩ theo chuyên khoa:', error);
     res.status(500).json({ message: 'Đã xảy ra lỗi khi lấy bác sĩ.' });
+  }
+}
+
+export const getDoctorByDepartmentId = async( req: any, res: any) => {
+    const { departmentId } = req.params;
+
+  try {
+    if (!departmentId) {
+      return res.status(400).json({ message: "Thiếu specialtyId trong yêu cầu." });
+    }
+
+    const doctors = await Doctor.find({ departmentId })
+      .populate({
+        path: 'userId',
+        select: 'fullName' // chỉ lấy tên từ userId
+      })
+      .select('_id userId overtimeExaminationPrice officeExaminationPrice'); // chỉ lấy _id và userId (đã populate)
+
+    // Trả về dữ liệu gồm _id của bác sĩ và tên
+    const result = doctors.map(doc  => {
+      const user = doc.userId as { fullName?: string };
+      return {
+        _id: doc._id,
+        name: user?.fullName || 'Không rõ tên',
+        overtimeExaminationPrice: doc.overtimeExaminationPrice,
+        officeExaminationPrice: doc.officeExaminationPrice,
+      };
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Lỗi khi lấy danh sách bác sĩ theo chuyên khoa:', error);
+    res.status(500).json({ message: 'Đã xảy ra lỗi khi lấy bác sĩ.' });
+  }
+}
+
+export const getDoctorsByDepartmentName = async( departmentName: string) => {
+  try{
+    const department = await Department.findOne({name: departmentName})
+      .collation({ locale: 'vi', strength: 1 })
+      .select('_id');
+  if(!department){
+    console.log("Không tìm thấy khoa", departmentName, department)
+    return [];
+  };
+  const doctors = await Doctor.find({departmentId: department._id})
+    .limit(5)
+    .populate('userId', 'fullName avatar').populate('specialtyId', 'name').populate('departmentId', 'name')
+    .select('_id nameSlug')
+    if(!doctors || doctors.length === 0) return [];
+    return doctors;
+  }catch(error) {
+    console.error(error);
   }
 }
 

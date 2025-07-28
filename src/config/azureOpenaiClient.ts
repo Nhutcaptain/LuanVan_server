@@ -65,6 +65,9 @@ export async function extractSymptoms(userInput: string): Promise<string> {
   - Input: "Em cảm thấy sốt cao, ho khan và đau họng"
   - Output: "sốt cao, ho khan, đau họng"
 
+  -Input: "Mình bị chóng mặt khi đứng lên, choáng nhẹ"
+  -Output: "chóng mặt khi đứng lên, choáng nhẹ"
+
   Input cần xử lý: "${userInput}"
 
   Chỉ trả về các triệu chứng, không thêm bất kỳ giải thích nào khác.

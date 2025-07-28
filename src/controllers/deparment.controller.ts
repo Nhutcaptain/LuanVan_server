@@ -30,7 +30,9 @@ export const createDepartment = async(req: any, res: any) => {
 
 export const getAllDepartment = async(re: any, res: any) => {
     try {
-    const departments = await Department.find().select('name _id').sort({name: 1});
+    const departments = await Department.find().select('name _id serviceIds')
+    .populate('serviceIds')    
+    .sort({name: 1});
 
     res.status(200).json(departments);
   } catch (error) {
@@ -73,6 +75,24 @@ export const updateSpecialty = async(req: any, res: any) => {
     }
 }
 
+export const updateDepartment = async(req: any, res: any) => {
+    try{
+        const {id} = req.params;
+        const data = req.body;
+        if(!id) {
+            return res.status(400).json({message: 'Thiếu thông tin'})
+        }
+        const result = await Department.findByIdAndUpdate(id, data, {new: true});
+        if(!result) {
+            return res.status(404).json({message: 'Không tìm thấy chuyên khoa này'});
+        }
+        return res.status(200).json(result);
+    }catch(error){
+        console.error(error);
+        return res.status(500).json({message: 'Lỗi từ server'});
+    }
+}
+
 
 
 export const getDoctorsByDepartment = async(req: any, res: any) => {
@@ -96,6 +116,8 @@ export const getDoctorsByDepartment = async(req: any, res: any) => {
             department: doc.departmentId?.name,
             specialization: doc.specialtyId.name,
             nameSlug: doc.nameSlug,
+            degree: doc.degree,
+            academicTitle: doc.academicTitle,
         }));
 
         res.status(200).json(simplified);
