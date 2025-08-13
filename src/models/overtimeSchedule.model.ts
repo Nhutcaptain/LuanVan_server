@@ -1,5 +1,19 @@
 // models/OvertimeSchedule.ts
 import mongoose from 'mongoose';
+const pausePeriodSchema = new mongoose.Schema({
+  startDate: {
+    type: Date,
+    required: true
+  },
+  endDate: {
+    type: Date,
+    required: true
+  },
+  reason: {
+    type: String,
+    default: ''
+  }
+}, { _id: false });
 
 const overtimeSlotSchema = new mongoose.Schema({
   startTime: {
@@ -21,11 +35,15 @@ const weeklySlotSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    default: false
+    default: true
   },
   slots: {
     type: [overtimeSlotSchema],
     default: []
+  },
+  pausePeriods: {
+    type: [pausePeriodSchema],
+    default: [],
   },
   locationId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -43,7 +61,7 @@ const overtimeScheduleSchema = new mongoose.Schema({
   weeklySchedule: {
     type: [weeklySlotSchema],
     default: [] // Array of 0-6 entries for each weekday
-  }
+  },
 }, {
   timestamps: true
 });

@@ -26,6 +26,7 @@ router.get('/callback/google',passport.authenticate('google',{session: false, fa
     }
 );
 router.get('/me',authenticate, authController.getMe);
+router.post('/verify-otp', authController.verifyOtp);
 
 
 export default router;

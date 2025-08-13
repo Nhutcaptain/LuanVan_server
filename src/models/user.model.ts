@@ -3,15 +3,15 @@ import mongoose from 'mongoose';
 const addressSchema = new mongoose.Schema({
   province: { 
     name: String,
-    code: Number,
+    id: Number,
   },
   district: {
     name: String,
-    code: Number,
+    id: Number,
   },
   ward: { 
     name: String,
-    code: Number,
+    id: Number,
   },
   houseNumber: { type: String },
 }, { _id: false }); // Không tạo _id cho subdocument

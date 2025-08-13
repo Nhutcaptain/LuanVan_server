@@ -12,14 +12,14 @@ export const getSummaryExamination = async (req: any, res: any) => {
       .populate({
         path: "doctorId",
         populate: {
-          path: 'userId',
-          select: 'fullName',
-        }
+          path: "userId",
+          select: "fullName",
+        },
       })
       .sort({ date: -1 })
       .lean();
 
-     const result = examinations.map((exam: any) => {
+    const result = examinations.map((exam: any) => {
       const doctor = exam.doctorId;
       const doctorUser = doctor?.userId;
 
@@ -28,7 +28,7 @@ export const getSummaryExamination = async (req: any, res: any) => {
         date: exam.date,
         doctorName: doctorUser?.fullName || "N/A",
         assessment: exam.assessment,
-        isOvertimeAppointment: exam.isOvertimeAppointment
+        isOvertimeAppointment: exam.isOvertimeAppointment,
       };
     });
 
@@ -44,19 +44,20 @@ export const getExaminationDetailById = async (req: any, res: any) => {
     if (!id) {
       return res.status(404).json({ message: "Không có id" });
     }
-    const detail = await Examination.findById(id).populate({
-      path: "doctorId",
-      select: 'overtimeExaminationPrice officeExaminationPrice',
-      populate: {
-        path: 'userId',
-        select: 'fullName'
-      }
-    })
-    .populate({
-        path: "testOrders.serviceId", 
-        select: "name price", 
+    const detail = await Examination.findById(id)
+      .populate({
+        path: "doctorId",
+        select: "overtimeExaminationPrice officeExaminationPrice",
+        populate: {
+          path: "userId",
+          select: "fullName",
+        },
       })
-    .populate('patientId', 'fullName dateOfBirth address gender')
+      .populate({
+        path: "testOrders.serviceId",
+        select: "name price",
+      })
+      .populate("patientId", "fullName dateOfBirth address gender phone email");
 
     if (!detail) {
       return res.status(404).json({ message: "Không tìm thấy phiếu khám." });
@@ -78,7 +79,11 @@ export const temp_save = async (req: any, res: any) => {
       status: "waiting_result",
     });
     record.save();
-    handleTestOrderUpdate(record.doctorId.toString(), record.patientId.toString(), record.testOrders);
+    handleTestOrderUpdate(
+      record.doctorId.toString(),
+      record.patientId.toString(),
+      record.testOrders
+    );
     return res.status(200).json(record);
   } catch (error) {
     console.error(error);
@@ -130,14 +135,19 @@ export const updateExamination = async (req: any, res: any) => {
   try {
     const data = req.body;
     const { id } = req.params;
-    const result = await Examination.findByIdAndUpdate(id, 
+    const result = await Examination.findByIdAndUpdate(
+      id,
       { $set: data },
       { new: true, runValidators: true }
     );
 
     if (!result)
       return res.status(404).json({ Message: "Không tìm thấy kết quả này" });
-    handleTestOrderUpdate(result.doctorId.toString(), result.patientId.toString(), data.testOrders);
+    handleTestOrderUpdate(
+      result.doctorId.toString(),
+      result.patientId.toString(),
+      data.testOrders
+    );
     return res.status(200).json(result);
   } catch (error) {
     console.error(error);
@@ -181,9 +191,13 @@ export const submitTestResult = async (req: any, res: any) => {
 
     await examination.save();
     notifyExaminationUpdate(examination._id.toString(), {
-      testOrders: examination.testOrders
+      testOrders: examination.testOrders,
     });
-    handleTestOrderUpdate(examination.doctorId.toString(), examination.patientId.toString(), examination.testOrders);
+    handleTestOrderUpdate(
+      examination.doctorId.toString(),
+      examination.patientId.toString(),
+      examination.testOrders
+    );
 
     return res.json({
       message: "Cập nhật kết quả xét nghiệm thành công",
@@ -195,20 +209,20 @@ export const submitTestResult = async (req: any, res: any) => {
   }
 };
 
-export const getTestOrderByAppointment = async(req: any, res: any) => {
-  try{
-    const {id} = req.params;
-    if(!id) return res.status(400).json({message: 'Thiếu thông tin'});
+export const getTestOrderByAppointment = async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Thiếu thông tin" });
     const data = await Examination.findById(id);
-    if(!data) return res.status(404).json({message: 'Không tìm thấy'});
+    if (!data) return res.status(404).json({ message: "Không tìm thấy" });
     return res.status(200).json({
-      testOrders: data.testOrders
-    })
-  }catch(error) {
+      testOrders: data.testOrders,
+    });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({message: 'Lỗi server'});
+    return res.status(500).json({ message: "Lỗi server" });
   }
-}
+};
 export const getExaminationsByDate = async (req: any, res: any) => {
   try {
     const { doctorId } = req.params;
@@ -227,9 +241,9 @@ export const getExaminationsByDate = async (req: any, res: any) => {
 
     const examinations = await Examination.find({
       doctorId,
-      date: { $gte: startOfDay, $lte: endOfDay }
+      date: { $gte: startOfDay, $lte: endOfDay },
     })
-      .populate("patientId", "fullName _id") 
+      .populate("patientId", "fullName _id")
       .sort({ date: 1 });
 
     res.status(200).json(examinations);
@@ -254,7 +268,9 @@ export const getExaminationsByMonth = async (req: any, res: any) => {
     const monthIndex = parseInt(monthStr) - 1; // JS tháng bắt đầu từ 0
 
     if (isNaN(year) || isNaN(monthIndex)) {
-      return res.status(400).json({ message: "Invalid month format, expected YYYY-MM" });
+      return res
+        .status(400)
+        .json({ message: "Invalid month format, expected YYYY-MM" });
     }
 
     const startOfMonth = new Date(year, monthIndex, 1, 0, 0, 0);
@@ -266,11 +282,12 @@ export const getExaminationsByMonth = async (req: any, res: any) => {
     })
       .populate("patientId", "fullName _id")
       .sort({ date: 1 });
-      console.log(examinations)
+    console.log(examinations);
 
     const stats = {
       examining: examinations.filter((e) => e.status === "examining").length,
-      waiting_result: examinations.filter((e) => e.status === "waiting_result").length,
+      waiting_result: examinations.filter((e) => e.status === "waiting_result")
+        .length,
       completed: examinations.filter((e) => e.status === "completed").length,
       total: examinations.length,
     };
@@ -279,5 +296,114 @@ export const getExaminationsByMonth = async (req: any, res: any) => {
   } catch (error) {
     console.error("Error fetching examinations by month:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getExaminationList = async (req: any, res: any) => {
+  try {
+    const { doctorId } = req.params;
+    const { type = "day", date, month } = req.query;
+
+    let match: Record<string, any> = {
+      doctorId: new mongoose.Types.ObjectId(doctorId),
+    };
+
+    if (type === "day") {
+      const target = new Date(date);
+      match.date = {
+        $gte: new Date(target.setHours(0, 0, 0)),
+        $lt: new Date(target.setHours(23, 59, 59)),
+      };
+    }
+    if (type === "week") {
+      const target = new Date(date);
+      const start = new Date(target);
+      start.setDate(target.getDate() - target.getDay());
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      match.date = { $gte: start, $lt: end };
+    }
+    if (type === "month") {
+      const [y, m] = month.split("-");
+      const start = new Date(Number(y), Number(m) - 1, 1);
+      const end = new Date(Number(y), Number(m), 0, 23, 59, 59, 999);
+      match.date = { $gte: start, $lt: end };
+    }
+
+    const list = await Examination.find(match).populate(
+      "patientId",
+      "fullName"
+    );
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi lấy danh sách bệnh án" });
+  }
+};
+
+export const getExaminationStats = async (req: any, res: any) => {
+  try {
+    const { doctorId } = req.params;
+    const { type = "day", date, month, year, byDisease } = req.query;
+
+    let match: Record<string, any> = {
+      doctorId: new mongoose.Types.ObjectId(doctorId),
+    };
+    let groupId;
+    let format;
+
+    if (type === "day") {
+      const targetDate = new Date(date);
+      match.date = {
+        $gte: new Date(targetDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(targetDate.setHours(23, 59, 59, 999)),
+      };
+      groupId = "$date";
+      format = "%Y-%m-%d";
+    }
+
+    if (type === "week") {
+      const targetDate = new Date(date);
+      const startOfWeek = new Date(targetDate);
+      startOfWeek.setDate(targetDate.getDate() - targetDate.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      match.date = { $gte: startOfWeek, $lt: endOfWeek };
+      groupId = { $dateToString: { format: "%Y-%m-%d", date: "$date" } };
+      format = "%Y-%m-%d";
+    }
+
+    if (type === "month") {
+      const [y, m] = month.split("-");
+      const startOfMonth = new Date(Number(y), Number(m) - 1, 1);
+      const endOfMonth = new Date(Number(y), Number(m), 0, 23, 59, 59, 999);
+
+      match.date = { $gte: startOfMonth, $lt: endOfMonth };
+      groupId = { $dateToString: { format: "%Y-%m-%d", date: "$date" } };
+      format = "%Y-%m-%d";
+    }
+
+    const pipeline: mongoose.PipelineStage[] = [
+      { $match: match },
+      {
+        $group:
+          byDisease === "true"
+            ? { _id: "$assessment", count: { $sum: 1 } }
+            : { _id: groupId, count: { $sum: 1 } },
+      },
+      { $sort: { _id: 1 as 1 } },
+    ];
+
+    const result = await Examination.aggregate(pipeline);
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi lấy thống kê" });
   }
 };

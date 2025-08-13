@@ -10,6 +10,9 @@ router.get('/getAllDepartment', departmentController.getAllDepartment);
 router.get('/getAllSpecialtyByDepartmentId/:departmentId', departmentController.getAllSpecialtyByDepartmentId);
 router.put('/updateSpecialty/:id',departmentController.updateSpecialty);
 router.put('/updateDepartment/:id',departmentController.updateDepartment);
+router.get('/getById/:id',departmentController.getDepartmentById);
+router.get('/getIntroduction/:id', departmentController.getIntroduction);
+router.delete('/delete/:id', departmentController.deleteDepartment);
 
 
 export default router;

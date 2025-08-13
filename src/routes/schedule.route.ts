@@ -14,6 +14,8 @@ router.get('/getSpecialSchedule/:doctorId',scheduleController.getSpecialSchedule
 router.post('/createOvertimeSchedule', scheduleController.addOvertimeDay);
 router.get('/getOvertimeSchedule/:doctorId', scheduleController.getOvertime);
 router.put('/updateOvertimeSchedule/:scheduleId', scheduleController.updateOvertimeDay); 
-router.delete('/deleteOvertimeSchedule/:doctorId/:dayOfWeek', scheduleController.deleteOvertimeDay);
+router.delete('/deleteOvertimeSchedule', scheduleController.deleteOvertimeDay);
+router.delete('/deleteSpecial', scheduleController.deleteSpecialSchedule);
+router.get('/special-schedule',scheduleController.getSpecialSchedules);
 
 export default router;

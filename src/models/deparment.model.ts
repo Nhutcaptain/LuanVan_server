@@ -1,13 +1,26 @@
 import mongoose from "mongoose";
 
 const defaultDepartmentSchema = new mongoose.Schema({
-    name: String,
+    name: {
+      type: String,
+      unique: true,
+      trim: true,
+      collation: { locale: 'en', strength: 2 }
+    },
     id: String,
     description: String,
     serviceIds: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Services',
     }],
+    contentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Post',
+    },
+    content: {
+      type: String,
+      default: '',
+    }
 
 },{timestamps: true});
 
@@ -15,7 +28,6 @@ defaultDepartmentSchema.pre("save", async function (next) {
   const doc = this as any;
 
   if (!doc.isNew || doc.id) return next(); // đã có id thì bỏ qua
-
   try {
     let isUnique = false;
     let generatedId = '';

@@ -11,6 +11,10 @@ const verificationSchema = new mongoose.Schema({
   gender: String,
   emailVerificationToken: String,
   emailVerificationTokenExpires: Date,
+  emailOtp: String,
+  emailOtpExpires: Date,
+  phoneOtp: { type: String },
+  phoneOtpExpires: { type: Date },
 }, { timestamps: true });
 
 export const Verification = mongoose.model('Verification', verificationSchema);

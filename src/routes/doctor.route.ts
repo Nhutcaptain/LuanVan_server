@@ -14,5 +14,6 @@ router.get('/getDoctorBySpecialtyId/:specialtyId',doctorController.getDoctorBySp
 router.get('/getDoctorIdByUserId/:userId',doctorController.getDoctorIdByUserId);
 router.get('/getByDepartment/:id',doctorController.getDoctorByDepartment)
 router.get('/getForAppointment/:departmentId',doctorController.getDoctorByDepartmentId);
+router.get('/search',doctorController.searchDoctorsByName);
 
 export default router;

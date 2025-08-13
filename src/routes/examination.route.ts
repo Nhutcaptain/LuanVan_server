@@ -11,5 +11,7 @@ router.put('/update/:id',examinationController.updateExamination);
 router.post('/submitTestResult',examinationController.submitTestResult);
 router.get('/getExaminationByDate/:doctorId', examinationController.getExaminationsByDate);
 router.get('/getExaminationByMonth/:doctorId', examinationController.getExaminationsByMonth);
+router.get('/list/:doctorId', examinationController.getExaminationList);
+router.get('/stats/:doctorId', examinationController.getExaminationStats);
 
 export default router;

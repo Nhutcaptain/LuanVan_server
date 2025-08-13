@@ -1,14 +1,27 @@
 import mongoose from "mongoose";
 
-const specialScheduleSchema = new mongoose.Schema({
-  doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
-  date: { type: Date, required: true }, // ngày cụ thể, ví dụ 2025-07-12
-  type: {
-    type: String,
-    required: true
-  },
-  note: { type: String }, // ghi chú thêm (ví dụ: "nghỉ phép", "họp hội đồng", v.v.)
-}, { timestamps: true });
+  const specialScheduleSchema = new mongoose.Schema({
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Doctor',
+      required: true
+    },
+    startDate: {
+      type: Date,
+      required: true // Ngày bắt đầu của lịch đặc biệt
+    },
+    endDate: {
+      type: Date,
+      required: true // Ngày kết thúc của lịch đặc biệt
+    },
+    type: {
+      type: String,
+      required: true
+    },
+    note: {
+      type: String
+    }
+  }, { timestamps: true });
 
 const weeklyScheduleSchema = new mongoose.Schema({
   doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },

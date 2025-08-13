@@ -16,6 +16,7 @@ const medicineSchema = new mongoose.Schema({
     unit: {
         type: String,
     },
+    importDate: Date,
     expireDate: Date,
     warningThreshold: Number,
     price: Number,

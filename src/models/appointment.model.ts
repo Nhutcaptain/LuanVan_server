@@ -37,6 +37,7 @@ const appointmentSchema = new mongoose.Schema({
     reason:{
         type: String,
     },
+    cancelReason: String,
     notificationSent: {
         email: Boolean,
         sms: Boolean,
@@ -45,6 +46,11 @@ const appointmentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Examination'
     },
+    confirmStatus: {
+        type: String,
+        enum: ['pending', 'confirmed', 'rejected'],
+        default: 'pending'
+    },  
     isOvertime: Boolean,
 }, { timestamps: true });
 
@@ -71,7 +77,7 @@ const SubAppointmentSchema = new mongoose.Schema({
   },
 }, { _id: false });
 
-const unifiedAppointmentSchema = new mongoose.Schema({
+const vaccinationAppointmentSchema = new mongoose.Schema({
     patientId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -79,7 +85,7 @@ const unifiedAppointmentSchema = new mongoose.Schema({
     },
     serviceId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Service',
+        ref: 'Services',
         required: true,
     },
     serviceName: String,
@@ -89,11 +95,8 @@ const unifiedAppointmentSchema = new mongoose.Schema({
         required: true,
     },
     queueNumber: Number,
-    type: {
-        type: String,
-        enum: ['vaccination','test','other'],
-        required: true,
-    },
+    time: String,
+
     status: {
         type: String,
         enum: ['scheduled', 'completed', 'cancelled', 'waiting', 'waiting_result'],
@@ -105,5 +108,5 @@ const unifiedAppointmentSchema = new mongoose.Schema({
     },
 },{timestamps: true});
 
-export const UnifiedAppointment = mongoose.model('UnifiedAppointment', unifiedAppointmentSchema)
+export const VaccinationAppointment = mongoose.model('VaccinationAppointment', vaccinationAppointmentSchema)
 export const Appointment = mongoose.model('Appointment', appointmentSchema);

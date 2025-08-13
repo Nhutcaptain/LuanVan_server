@@ -197,7 +197,10 @@ interface IPopulatedDoctor extends Document {
   specialtyId:{
     _id: string;
     name: string;
-  }
+  },
+  degree: string;
+  academicTitle: string;
+  description: string;
 }
 
 // export const getDoctorForAppointment = async(req: any, res: any) => {
@@ -267,6 +270,9 @@ export const getDoctorBySlug = async(req: any, res: any) => {
             specialtyId: doctor.specialtyId,
             gender: doctor.userId.gender,
             schedule: schedule,
+            degree: doctor.degree,
+            academicTitle: doctor.academicTitle,
+            description: doctor.description,
         };
 
         res.status(200).json(simplified);
@@ -470,3 +476,34 @@ export const getSuggestDoctors = async(diagnosis: string) => {
         console.error(error);
     }
 }
+
+export const searchDoctorsByName = async (req: any, res: any) => {
+  const title = req.query.title as string;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ message: "Từ khóa tìm kiếm không hợp lệ." });
+  }
+
+  try {
+    // Tìm tất cả bác sĩ, populate userId để truy cập fullName
+    const doctors = await Doctor.find()
+      .populate({
+        path: "userId",
+        match: {
+          fullName: { $regex: title, $options: "i" }, // tìm không phân biệt hoa thường
+        },
+        select: "fullName avatar", // chỉ lấy các trường cần thiết
+      })
+      .populate("departmentId", 'name')
+      .populate("specialtyId", 'name');
+
+    // Lọc bỏ những bác sĩ không có user match
+    const filtered = doctors.filter(doc => doc.userId); // do match có thể null
+    console.log(filtered);
+
+    res.status(200).json(filtered);
+  } catch (error) {
+    console.error("Lỗi khi tìm kiếm bác sĩ:", error);
+    res.status(500).json({ message: "Lỗi server." });
+  }
+};
