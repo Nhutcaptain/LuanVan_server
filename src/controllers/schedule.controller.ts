@@ -96,8 +96,6 @@ export const createSpecialSchedule = async (req: any, res: any) => {
       return res.status(500).json({ message: "Lỗi khi tạo lịch đặc biệt" });
     }
 
-    console.log(createdSchedule);
-
     // Huỷ các lịch hẹn bị ảnh hưởng trong khoảng thời gian
     const affectedAppointments = await Appointment.updateMany(
       {
@@ -283,92 +281,166 @@ function getDateOfISOWeek(week: number, year: number) {
   return ISOweekStart;
 }
 
-const isTimeOverlap = (
+// const isTimeOverlap = (
+//   startA: string,
+//   endA: string,
+//   startB: string,
+//   endB: string
+// ): boolean => {
+//   return !(endA <= startB || endB <= startA);
+// };
+
+function isTimeOverlap(
   startA: string,
   endA: string,
   startB: string,
   endB: string
-): boolean => {
-  return !(endA <= startB || endB <= startA);
-};
+): boolean {
+  const toMinutes = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const aStart = toMinutes(startA);
+  const aEnd = toMinutes(endA);
+  const bStart = toMinutes(startB);
+  const bEnd = toMinutes(endB);
+
+  return aStart < bEnd && bStart < aEnd; // có overlap
+}
 
 export const createOrUpdateSchedule = async (req: any, res: any) => {
   try {
     const { doctorId, schedule } = req.body;
+    console.log(schedule);
+
+    // Validate input
     if (!doctorId || !Array.isArray(schedule) || schedule.length === 0) {
       return res
         .status(400)
         .json({ message: "Vui lòng cung cấp doctorId và schedule hợp lệ." });
     }
 
-    const allNewShiftIds = schedule.flatMap((day: any) => day.shiftIds);
-    const newShifts = await Shift.find({ _id: { $in: allNewShiftIds } });
+    // Check doctor tồn tại
+    const doctorExists = await Doctor.findById(doctorId);
+    if (!doctorExists) {
+      return res.status(404).json({ message: "Không tìm thấy bác sĩ" });
+    }
 
-    const existing = await WeeklySchedule.findOne({ doctorId }).populate({
+    // Lấy toàn bộ shift trong schedule mới
+    const allNewShiftIds = schedule.flatMap((day: any) =>
+      day.shiftIds.map((s: any) => (typeof s === "string" ? s : s._id))
+    );
+    const newShifts = await Shift.find({
+      _id: { $in: allNewShiftIds },
+    }).populate("locationId", "name");
+
+    const shiftMap = new Map(
+      newShifts.map((shift) => [shift._id.toString(), shift])
+    );
+
+    // Lấy lịch hiện tại của bác sĩ
+    const existingSchedule = await WeeklySchedule.findOne({
+      doctorId,
+    }).populate({
       path: "schedule.shiftIds",
-      select: "name startTime endTime locationId",
+      populate: { path: "locationId", select: "name" },
     });
 
-    if (existing) {
-      for (const newDay of schedule) {
-        const existingDay = (existing.schedule as any[]).find(
-          (day: any) => day.dayOfWeek === newDay.dayOfWeek
+    // --- KIỂM TRA CONFLICT ---
+    for (const newDay of schedule) {
+      const shiftsInDay = newDay.shiftIds
+        .map((id: any) => shiftMap.get(typeof id === "string" ? id : id._id))
+        .filter(Boolean);
+
+      // 1. Check conflict giữa các shift mới trong cùng ngày
+      for (let i = 0; i < shiftsInDay.length; i++) {
+        for (let j = i + 1; j < shiftsInDay.length; j++) {
+          const s1 = shiftsInDay[i];
+          const s2 = shiftsInDay[j];
+
+          if (
+            isTimeOverlap(s1.startTime, s1.endTime, s2.startTime, s2.endTime) &&
+            s1.locationId.toString() !== s2.locationId.toString()
+          ) {
+            return res.status(409).json({
+              message: `Ngày ${newDay.dayOfWeek} bị trùng giờ giữa ${s1.name} (${s1.startTime}-${s1.endTime}, ${s1.locationId.name}) và ${s2.name} (${s2.startTime}-${s2.endTime}, ${s2.locationId.name}) tại 2 địa điểm khác nhau.`,
+              conflictShifts: [s1, s2],
+            });
+          }
+        }
+      }
+
+      // 2. Check conflict với schedule cũ (nếu có)
+      if (existingSchedule) {
+        const existingDay = existingSchedule.schedule.find(
+          (d: any) => d.dayOfWeek === newDay.dayOfWeek
         );
-
-        if (!existingDay) continue;
-
-        const newShiftsForDay = newShifts.filter((shift) =>
-          newDay.shiftIds.includes(shift._id.toString())
-        );
-        const existingShiftsForDay = existingDay.shiftIds;
-
-        for (const newShift of newShiftsForDay) {
-          for (const existShift of existingShiftsForDay) {
-            if (
-              isTimeOverlap(
-                newShift.startTime,
-                newShift.endTime,
-                existShift.startTime,
-                existShift.endTime
-              ) &&
-              newShift.locationId.toString() !==
-                existShift.locationId.toString()
-            ) {
-              return res.status(409).json({
-                message: `Lịch bị trùng giờ (${newShift.startTime} - ${newShift.endTime}) với ca khác tại địa điểm khác trong cùng ngày.`,
-                conflictShift: {
-                  newShift,
-                  existShift,
-                },
-              });
+        if (existingDay) {
+          for (const newShift of shiftsInDay) {
+            for (const existShift of existingDay.shiftIds) {
+              if (
+                isTimeOverlap(
+                  newShift.startTime,
+                  newShift.endTime,
+                  (existShift as any).startTime,
+                  (existShift as any).endTime
+                ) &&
+                newShift.locationId.toString() !==
+                  (existShift as any).locationId.toString()
+              ) {
+                const dayNames = [
+                  "Chủ nhật",
+                  "Thứ 2",
+                  "Thứ 3",
+                  "Thứ 4",
+                  "Thứ 5",
+                  "Thứ 6",
+                  "Thứ 7",
+                ];
+                return res.status(409).json({
+                  message: `${dayNames[newDay.dayOfWeek]} bị trùng giờ giữa ${
+                    newShift.name
+                  } (${newShift.startTime}-${newShift.endTime}, ${
+                    newShift.locationId.name
+                  }) và ${(existShift as any).name} (${
+                    (existShift as any).startTime
+                  }-${(existShift as any).endTime}, ${
+                    (existShift as any).locationId.name
+                  }) tại 2 địa điểm khác nhau.`,
+                  conflictShifts: [newShift, existShift],
+                });
+              }
             }
           }
         }
       }
-      (existing as any).schedule = schedule;
-      await existing.save();
-      const populated = await existing.populate({
-        path: "schedule.shiftIds",
-        select: "name startTime endTime",
-      });
-      return res.status(200).json(populated);
+    }
+
+    // --- SAVE ---
+    let result;
+    if (existingSchedule) {
+      existingSchedule.set("schedule", schedule);
+      result = await existingSchedule.save();
     } else {
-      // Nếu chưa có lịch nào, tạo mới
-      const newSchedule = await WeeklySchedule.create({
+      result = await WeeklySchedule.create({
         doctorId,
         schedule,
         isActive: true,
       });
-
-      const populated = await newSchedule.populate({
-        path: "schedule.shiftIds",
-        select: "name startTime endTime",
-      });
-      return res.status(201).json(populated);
     }
-  } catch (error) {
-    console.error("[createOrUpdateWeeklySchedule] Lỗi:", error);
-    return res.status(500).json({ message: "Lỗi máy chủ", error: error });
+
+    const populated = await WeeklySchedule.findById(result._id).populate({
+      path: "schedule.shiftIds",
+      populate: { path: "locationId", select: "name" },
+    });
+
+    return res.status(existingSchedule ? 200 : 201).json(populated);
+  } catch (error: any) {
+    console.error("[createOrUpdateSchedule] Lỗi:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi máy chủ", error: error.message });
   }
 };
 
@@ -595,7 +667,6 @@ export const updateOvertimeDay = async (req: any, res: any) => {
   try {
     const { scheduleId } = req.params;
     const { dayOfWeek, slots, isActive, locationId, pausePeriods } = req.body;
-    console.log("updateOvertimeDay body:", req.body);
     if (!scheduleId || dayOfWeek === undefined || !Array.isArray(slots)) {
       console.error("Thiếu dữ liệu:", { scheduleId, dayOfWeek, slots });
       return res.status(400).json({ message: "Thiếu dữ liệu." });
@@ -652,7 +723,10 @@ export const updateOvertimeDay = async (req: any, res: any) => {
     // ✅ Cập nhật pausePeriods nếu có
     if (Array.isArray(pausePeriods)) {
       const validPeriods = pausePeriods.filter(
-        (p) => p.startDate && p.endDate && new Date(p.startDate) < new Date(p.endDate)
+        (p) =>
+          p.startDate &&
+          p.endDate &&
+          new Date(p.startDate) < new Date(p.endDate)
       );
       day.set("pausePeriods", validPeriods);
       for (const period of validPeriods) {
@@ -663,16 +737,22 @@ export const updateOvertimeDay = async (req: any, res: any) => {
         const appointmentsToCancel = await Appointment.find({
           doctorId: doctorId,
           isOvertime: true,
-          status: 'scheduled',
+          status: "scheduled",
           appointmentDate: {
             $gte: start,
             $lte: end,
           },
-        }).populate('patientId','email fullName');
+        }).populate("patientId", "email fullName");
 
         // Lọc các appointment có đúng thứ trùng với dayOfWeek (0-6)
         const filteredAppointments = appointmentsToCancel.filter((appt) => {
           const day = new Date(appt.appointmentDate).getDay();
+          console.log(
+            "Checking appointment day:",
+            day,
+            "against dayOfWeek:",
+            dayOfWeek
+          );
           return day === dayOfWeek;
         });
 
@@ -689,20 +769,24 @@ export const updateOvertimeDay = async (req: any, res: any) => {
             }
           );
         }
-        for (const appointment of appointmentsToCancel) {
-              const patient = appointment.patientId;
-              if ((patient as any).email) {
-                await sendEmail({
-                  to: (patient as any).email,
-                  subject: "Thông báo hủy lịch hẹn",
-                  html: `
+        for (const appointment of filteredAppointments) {
+          const patient = appointment.patientId;
+          if ((patient as any).email) {
+            await sendEmail({
+              to: (patient as any).email,
+              subject: "Thông báo hủy lịch hẹn",
+              html: `
                     <p>Chào ${(patient as any).fullName},</p>
-                    <p>Lịch hẹn của bạn vào ngày <strong>${moment(appointment.appointmentDate).format("DD/MM/YYYY")}</strong> đã bị hủy do lý do: <em>Bác sĩ đã ngừng lịch vào ngày này</em>.</p>
+                    <p>Lịch hẹn của bạn vào ngày <strong>${moment(
+                      appointment.appointmentDate
+                    ).format(
+                      "DD/MM/YYYY"
+                    )}</strong> đã bị hủy do lý do: <em>Bác sĩ đã ngừng lịch vào ngày này</em>.</p>
                     <p>Chúng tôi xin lỗi vì sự bất tiện này.</p>
-                  `
-                });
-              }
-            }
+                  `,
+            });
+          }
+        }
       }
     }
     await overtime.save();
@@ -714,7 +798,6 @@ export const updateOvertimeDay = async (req: any, res: any) => {
     return res.status(500).json({ message: "Lỗi server." });
   }
 };
-
 
 export const deleteOvertimeDay = async (req: any, res: any) => {
   try {

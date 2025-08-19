@@ -1,21 +1,28 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getGenerativeModel } from "../googleClient";
+import OpenAI from "openai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+// const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-export const askGoogleAI = async (req: any, res: any) => {
-  const { prompt } = req.body;
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    res.json({ reply: text });
-  } catch (err) {
-    console.error("Gemini API error:", err);
-    res.status(500).json({ error: "Something went wrong with Gemini API" });
-  }
-};
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+// export const askGoogleAI = async (req: any, res: any) => {
+//   const { prompt } = req.body;
+//   try {
+//     const result = await model.generateContent(prompt);
+//     const response = await result.response;
+//     const text = response.text();
+//     res.json({ reply: text });
+//   } catch (err) {
+//     console.error("Gemini API error:", err);
+//     res.status(500).json({ error: "Something went wrong with Gemini API" });
+//   }
+// };
 
 export const detectIntent = async (userInput: string) => {
   const model = getGenerativeModel();
@@ -39,8 +46,6 @@ export const detectIntent = async (userInput: string) => {
 };
 
 export const detectIntentHealthReview = async (userInput: string) => {
-  const model = getGenerativeModel();
-
   const prompt = `
 Bạn là một AI chuyên phân loại ý định người dùng. Hãy đọc câu sau và xác định xem người dùng muốn gì:
 
@@ -58,9 +63,17 @@ Bạn là một AI chuyên phân loại ý định người dùng. Hãy đọc c
 Câu: "${userInput}"
   `.trim();
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text().trim().toLowerCase();
+  const completion = await openai.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: "Bạn là AI phân loại ý định người dùng." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0, // để kết quả ổn định, không random
+  });
+
+  const raw = completion.choices[0].message?.content?.trim().toLowerCase() || "normal";
+  const text = raw.trim().toLowerCase().replace(/^"|"$/g, ""); 
 
   return text;
 };

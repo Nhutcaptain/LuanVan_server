@@ -21,6 +21,11 @@ export const createDoctor = async (req: any, res: any) => {
       certificate,
       experience,
       schedule,
+      description,
+      degree,
+      academicTitles,
+      overtimeExaminationPrice,
+      officeExaminationPrice,
     } = req.body;
 
     const {
@@ -31,6 +36,7 @@ export const createDoctor = async (req: any, res: any) => {
       dateOfBirth,
       gender,
       address,
+      avatar
     } = userId;
 
     // Kiểm tra email đã tồn tại
@@ -52,6 +58,7 @@ export const createDoctor = async (req: any, res: any) => {
       dateOfBirth,
       gender,
       address,
+      avatar,
       role: 'doctor',
     });
 
@@ -63,11 +70,16 @@ export const createDoctor = async (req: any, res: any) => {
       userId: savedUser._id,
       specialization,
       departmentId,
-      specialtyId,
+      specialtyId: specialtyId && specialtyId !== "" ? specialtyId : null,
       nameSlug,
       certificate,
       experience,
       schedule,
+      description,
+      degree,
+      academicTitles,
+      overtimeExaminationPrice,
+      officeExaminationPrice,
     });
 
     const savedDoctor = await newDoctor.save();
@@ -93,6 +105,7 @@ export const getDoctor = async (req: any, res: any) => {
         const doctor = await Doctor.findOne({userId})
           .populate('userId')
           .populate('specialtyId','name')
+          .populate('departmentId', 'name')
           ;
         if(!doctor) {
             return res.status(404).json({message: 'Không tìm thấy bác sĩ'});
@@ -133,7 +146,7 @@ export const getAllDoctor = async (req: any, res: any) => {
             path: 'userId',
             match: {role: 'doctor'},
             select: '-password',
-        }).lean();
+        }).populate('departmentId','name').lean();
         return res.status(200).json(doctors);
     }catch(error) {
         console.error('Lỗi không lây được danh sách bác sĩ');

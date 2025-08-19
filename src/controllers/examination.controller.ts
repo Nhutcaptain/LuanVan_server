@@ -1,4 +1,4 @@
-import { Message } from "twilio/lib/twiml/MessagingResponse";
+
 import { Examination } from "../models/examination.model";
 import mongoose from "mongoose";
 import { handleTestOrderUpdate, notifyExaminationUpdate } from "../socket";

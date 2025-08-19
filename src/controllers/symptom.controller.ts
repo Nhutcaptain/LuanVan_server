@@ -7,7 +7,7 @@ import { diagnoseFromSymptoms, extractSymptoms } from '../config/azureOpenaiClie
 import { adviseFromDiagnosis, generateFullHealthResponse } from '../config/services/gpt.service';
 import { getSuggestDoctors } from './doctorController';
 import { addToUserChatHistory } from '../routes/openai.route';
-import { diagnosisToDepartmentMap } from '../config/services/diagnosis.service';
+import { diagnosisToDepartmentMap, getSpecialtyByDiagnosis } from '../config/services/diagnosis.service';
 
 // 📁 Đường dẫn đến thư mục chatbot
 const baseDir = path.join(__dirname, '..', '..', '..', 'chatbot');
@@ -179,7 +179,7 @@ export const handleDiagnosis = async (userId: string, description: string) => {
 
   // 4. Tạo phản hồi tự nhiên
   const fullResponse = await generateFullHealthResponse(predictions, normalized);
-  const department = diagnosisToDepartmentMap[topPrediction.diagnosis] || null;
+  const department = await getSpecialtyByDiagnosis(topDiagnosis);
 
   return {
     response: fullResponse,

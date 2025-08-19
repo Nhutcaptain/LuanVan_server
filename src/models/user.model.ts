@@ -83,7 +83,9 @@ const userSchema = new mongoose.Schema({
   },
   idNumber: {
     type: String,
-    trim: true
+    trim: true,
+    unique: true,
+    sparse: true, // Cho phép giá trị null hoặc không có
   },
   emailVerified: {
     type: Boolean,

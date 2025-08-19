@@ -15,25 +15,60 @@ export const createUser = async (req: Request, res: Response) => {
   res.status(201).json(newUser);
 };
 
-export const updateUser = async (req: any, res: Response) => {
+export const updateUser = async (req: any, res: any) => {
   const userId = req.user.userId;
-  console.log('User ID:', userId);
   const profileData = req.body;
-  try{
-    const updateUser = await User.findByIdAndUpdate(
+
+  try {
+    // Kiểm tra trùng số điện thoại
+    if (profileData.phone) {
+      const existingPhone = await User.findOne({
+        phone: profileData.phone,
+        _id: { $ne: userId } // Loại trừ chính user đang cập nhật
+      });
+      if (existingPhone) {
+        return res.status(400).json({
+          message: 'Số điện thoại đã được sử dụng bởi người dùng khác.'
+        });
+      }
+    }
+
+    // Kiểm tra trùng số CCCD / CMND
+    if (profileData.idNumber) {
+      const existingId = await User.findOne({
+        idNumber: profileData.idNumber,
+        _id: { $ne: userId }
+      });
+      if (existingId) {
+        return res.status(400).json({
+          message: 'Số căn cước / CMND đã được sử dụng bởi người dùng khác.'
+        });
+      }
+    }
+
+    // Cập nhật người dùng
+    const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: profileData },
-      { new: true, runValidators: true, context: 'query' }//mew: true để trả về bản ghi đã cập nhật
-    ).select('-password -__v'); // Loại bỏ password và __v khỏi kết quả trả về
-    if(!updateUser) {
-      return res.status(404).json({message: 'Không tìm thấy người dùng.'});
+      { new: true, runValidators: true, context: 'query' }
+    ).select('-password -__v');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
     }
-    return res.status(200).json({message: 'Cập nhật thông tin người dùng thành công.', user: updateUser});
-  }catch(error) {
+
+    return res.status(200).json({
+      message: 'Cập nhật thông tin người dùng thành công.',
+      user: updatedUser
+    });
+
+  } catch (error) {
     console.error('Error updating user:', error);
-    return res.status(500).json({ message: 'Lỗi khi cập nhật thông tin người dùng.' });
+    return res.status(500).json({
+      message: 'Lỗi khi cập nhật thông tin người dùng.'
+    });
   }
-}
+};
 
 export const createTemporaryUser = async (req: any, res: any) => {
   try{

@@ -8,6 +8,11 @@ dotenv.config();
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT!;
 const apiKey = process.env.AZURE_OPENAI_KEY!;
 const model = process.env.AZURE_OPENAI_MODEL || "gpt-4";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
 
@@ -61,37 +66,43 @@ export const adviseFromDiagnosis = async (
 };
 
 export const generateFullHealthResponse = async (
-  diagnoses: string[], // danh sách bệnh
+  diagnoses: { diagnosis: string; probability?: number }[], // nhận object từ model
   symptoms: string
 ): Promise<string> => {
+  // Lọc bỏ trùng lặp diagnosis
+  const uniqueDiagnoses = Array.from(
+    new Set(diagnoses.map((d) => d.diagnosis.trim().toLowerCase()))
+  ).map(
+    (name) => diagnoses.find((d) => d.diagnosis.trim().toLowerCase() === name)?.diagnosis || name
+  );
+
   const prompt = `
-Bạn là bác sĩ AI. Dựa trên các triệu chứng của bệnh nhân và danh sách các chẩn đoán có thể xảy ra, hãy phản hồi bằng một đoạn tư vấn thân thiện, sử dụng **Markdown**.
+Bạn là bác sĩ AI. Dựa trên danh sách các chẩn đoán đã được đưa ra, hãy phản hồi bằng một đoạn tư vấn thân thiện, sử dụng **Markdown**.
 
 Thông tin:
-- Triệu chứng: "${symptoms}"
-- Các chẩn đoán: ${diagnoses.map((d, i) => `${i + 1}. ${d}`).join("\n")}
+- Triệu chứng bệnh nhân mô tả: "${symptoms}"
+- Các chẩn đoán từ hệ thống:
+${uniqueDiagnoses.map((d, i) => `${i + 1}. ${d}`).join("\n")}
 
 Yêu cầu:
-- Mở đầu bằng: "**Từ các triệu chứng trên, có thể bạn đang mắc phải một trong các tình trạng sau:**"
+- Mở đầu bằng: "**Dựa trên các chẩn đoán, có thể bạn đang gặp một trong các tình trạng sau:**"
 - Với mỗi chẩn đoán:
   - Trình bày dưới dạng danh sách đánh số
-  - Gồm chẩn đoán (bôi đậm, là các chẩn đoán), các dấu hiệu liên quan (giản dị)
+  - Gồm chẩn đoán (bôi đậm), triệu chứng thường gặp (ngắn gọn, dễ hiểu)
   - Lời khuyên chăm sóc, nghỉ ngơi, theo dõi tại nhà
 
 - Kết thúc bằng:
   👉 Nếu tình trạng không cải thiện hoặc có dấu hiệu nặng, bạn nên gặp bác sĩ để được khám trực tiếp.
 
-- Nếu trong các chẩn đoán có cái trùng nhau thì chỉ lấy một chẩn đoán
-- Không sử dụng thuật ngữ y học phức tạp
-- Không nêu tên thuốc
-- Trình bày không quá 8 dòng
-- Viết bằng **tiếng Việt**, sử dụng **Markdown**
+- Không nêu thuốc
+- Không quá 8 dòng
+- Viết bằng **tiếng Việt**, dùng **Markdown**
+`.trim();
 
-Trả về một đoạn văn hoàn chỉnh.
-`;
-
-  const response = await client.path("/chat/completions").post({
-    body: {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.5,
       messages: [
         {
           role: "system",
@@ -99,20 +110,18 @@ Trả về một đoạn văn hoàn chỉnh.
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.5,
-      model,
-    },
-  });
+    });
 
-  if (isUnexpected(response)) {
-    throw new Error(`Unexpected: ${JSON.stringify(response.body)}`);
+    return (
+      completion.choices[0].message?.content?.trim() ||
+      "Không thể đưa ra lời khuyên lúc này."
+    );
+  } catch (error) {
+    console.error("Lỗi GPT:", error);
+    return "Không thể đưa ra lời khuyên lúc này.";
   }
-
-  return (
-    response.body.choices?.[0]?.message?.content?.trim() ||
-    "Không thể đưa ra lời khuyên lúc này."
-  );
 };
+
 
 export async function getSubSpecialtyFromDiagnosis(
   diagnosis: string

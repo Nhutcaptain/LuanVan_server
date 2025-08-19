@@ -17,8 +17,8 @@ const doctorSchema = new mongoose.Schema({
   specialtyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Specialty",
-    required: true,
     trim: true,
+    default: null 
   },
   specialization: {
     type: String,
@@ -49,7 +49,6 @@ const doctorSchema = new mongoose.Schema({
   academicTitles: {
     type: String,
     enum: ['Associate Professor' , 'Professor'],
-    default: '',
   },
   schedule: {
     date: Date,

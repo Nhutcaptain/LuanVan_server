@@ -1,12 +1,21 @@
 import dayjs from "dayjs";
-import { Appointment, VaccinationAppointment } from "../models/appointment.model";
+import {
+  Appointment,
+  VaccinationAppointment,
+} from "../models/appointment.model";
 import { OvertimeSchedule } from "../models/overtimeSchedule.model";
 import { Shift } from "../models/shift.model";
 import {
   SpecialSchedule,
   WeeklySchedule,
 } from "../models/weeklySchedule.model";
-import { emitCancelAppointment, emitCompleteStatus, emitCompleteStatusForPatient, emitNewAppointment, handleTestOrderUpdate } from "../socket";
+import {
+  emitCancelAppointment,
+  emitCompleteStatus,
+  emitCompleteStatusForPatient,
+  emitNewAppointment,
+  handleTestOrderUpdate,
+} from "../socket";
 import { Examination } from "../models/examination.model";
 import { sendEmail } from "../utils/email";
 import moment from "moment";
@@ -34,10 +43,11 @@ export const createAppointment = async (req: any, res: any) => {
     const existingAppointment = await Appointment.findOne({
       patientId,
       appointmentDate,
-      status: "scheduled",
     });
 
-    if (existingAppointment) {
+    console.log(existingAppointment);
+
+    if (existingAppointment && existingAppointment.status === "scheduled") {
       return res.status(409).json({
         message:
           "Bạn đã có lịch khám với bác sĩ này trong ngày này. Vui lòng chọn buổi khác hoặc huỷ lịch cũ.",
@@ -52,7 +62,7 @@ export const createAppointment = async (req: any, res: any) => {
       status: "scheduled",
     });
 
-    if (count >= 10) {
+    if (count >= 20) {
       return res.status(409).json({
         message:
           "Đã đủ số lượng bệnh nhân cho bác sĩ này vào buổi khám đó. Vui lòng chọn thời gian khác.",
@@ -74,16 +84,18 @@ export const createAppointment = async (req: any, res: any) => {
         sms: false,
       },
       isOvertime,
-      cancelReason: '',
+      cancelReason: "",
     });
 
     await newAppointment.save();
     const populatedAppointment = await Appointment.findById(newAppointment._id)
-      .populate("patientId", "_id fullName") 
-      .lean(); 
+      .populate("patientId", "_id fullName")
+      .lean();
 
     if (!populatedAppointment) {
-      return res.status(500).json({ message: "Không thể lấy thông tin lịch hẹn vừa tạo." });
+      return res
+        .status(500)
+        .json({ message: "Không thể lấy thông tin lịch hẹn vừa tạo." });
     }
     const patientListItem = {
       _id: populatedAppointment._id.toString(),
@@ -95,7 +107,7 @@ export const createAppointment = async (req: any, res: any) => {
         _id: populatedAppointment.patientId._id.toString(),
         fullName: (populatedAppointment.patientId as any).fullName,
       },
-      isOvertime: populatedAppointment.isOvertime
+      isOvertime: populatedAppointment.isOvertime,
     };
     emitNewAppointment(patientListItem);
     res.status(201).json(newAppointment);
@@ -120,7 +132,7 @@ export const getAppointmentByPatientId = async (req: any, res: any) => {
           select: "fullName email phone",
         },
       })
-      .populate("departmentId", "name")
+      .populate("departmentId", "name");
     if (!appointments || appointments.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy lịch hẹn nào" });
     }
@@ -174,26 +186,59 @@ export const cancelAppointment = async (req: any, res: any) => {
 export const getAppointmentByDoctor = async (req: any, res: any) => {
   try {
     const { doctorId } = req.params;
-    const { date, type } = req.query;
+    const { date, startDate, endDate, type, view } = req.query;
     const query: any = { doctorId };
+
     if (!doctorId) {
       return res.status(400).json({ message: "Thiếu thông tin bác sĩ" });
     }
-    if (date) {
-      query.appointmentDate = date; // Lưu ý: cần đảm bảo date là chuỗi "YYYY-MM-DD"
+
+    // Handle different view types
+    if (view === "day" && date) {
+      query.appointmentDate = date;
+    } else if (view === "week" && date) {
+      const startOfWeek = new Date(date);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Start of week (Sunday)
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(endOfWeek.getDate() + 6); // End of week (Saturday)
+
+      query.appointmentDate = {
+        $gte: startOfWeek.toISOString().split("T")[0],
+        $lte: endOfWeek.toISOString().split("T")[0],
+      };
+    } else if (view === "month" && date) {
+      const [year, month] = date.split("-");
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0);
+
+      query.appointmentDate = {
+        $gte: startOfMonth.toISOString().split("T")[0],
+        $lte: endOfMonth.toISOString().split("T")[0],
+      };
+    } else if (startDate && endDate) {
+      // Custom date range
+      query.appointmentDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
     }
 
-    if (type === 'overtime') {
+    if (type === "overtime") {
       query.isOvertime = true;
-    } else if (type === 'regular') {
+    } else if (type === "regular") {
       query.isOvertime = false;
     }
-    const appointments = await Appointment.find(query).populate("patientId", "fullName phone dateOfBirth gender email");
+
+    const appointments = await Appointment.find(query)
+      .populate("patientId", "fullName phone dateOfBirth gender email")
+      .sort({ appointmentDate: 1, session: 1 });
+
     if (!appointments) {
       return res
         .status(404)
         .json({ message: "Không tìm thấy lịch đặt khám nào" });
     }
+
     return res.status(200).json(appointments);
   } catch (error) {
     console.error(error);
@@ -315,6 +360,7 @@ export const getTodayAppointments = async (req: any, res: any) => {
             appointmentDate: { $gte: startOfDay, $lte: endOfDay },
             session: prevSession,
             status: { $ne: "done" },
+            confirmStatus: "confirmed",
             migratedFromSession: { $ne: prevSession }, // tránh chuyển nhiều lần
           }).lean();
 
@@ -368,6 +414,7 @@ export const getTodayAppointments = async (req: any, res: any) => {
       appointmentDate: { $gte: startOfDay, $lte: endOfDay },
       session: sessionString,
       status: { $ne: "cancelled" },
+      confirmStatus: "confirmed",
     })
       .populate({
         path: "patientId",
@@ -504,10 +551,14 @@ export const updateStatusAppointment = async (req: any, res: any) => {
       status,
       examinationId,
     }).populate("patientId", "fullName _id");
-    if(!result) return res.status(404).json({message: 'Không tìm thấy lịch hẹn này'});
-    if(status === 'completed'){
+    if (!result)
+      return res.status(404).json({ message: "Không tìm thấy lịch hẹn này" });
+    if (status === "completed") {
       emitCompleteStatus(result?.doctorId.toString(), result._id.toString());
-      emitCompleteStatusForPatient(result.patientId.toString(), result._id.toString());
+      emitCompleteStatusForPatient(
+        result.patientId.toString(),
+        result._id.toString()
+      );
     }
     return res.status(200).json(result);
   } catch (error) {
@@ -530,7 +581,7 @@ export const getTestOrder = async (req: any, res: any) => {
 
 export const stopAppointments = async (req: any, res: any) => {
   try {
-    const { doctorId } = req.params; 
+    const { doctorId } = req.params;
     const { date, type, cancelReason } = req.body;
 
     if (!doctorId || !date || !cancelReason) {
@@ -543,17 +594,20 @@ export const stopAppointments = async (req: any, res: any) => {
       //   $eq: moment(date).startOf('day').toDate(), // đảm bảo chỉ lấy ngày, bỏ giờ
       // },
       appointmentDate: date,
-      status: 'scheduled', // chỉ dừng các lịch chưa thực hiện
+      status: "scheduled", // chỉ dừng các lịch chưa thực hiện
     };
 
-    if (type === 'overtime') {
+    if (type === "overtime") {
       query.isOvertime = true;
-    } else if (type === 'normal') {
+    } else if (type === "normal") {
       query.isOvertime = false;
     }
 
     // Lấy danh sách lịch cần hủy
-    const appointments = await Appointment.find(query).populate('patientId', 'email fullName');
+    const appointments = await Appointment.find(query).populate(
+      "patientId",
+      "email fullName"
+    );
 
     if (!appointments.length) {
       return res.status(404).json({ message: "Không có lịch hẹn để hủy" });
@@ -568,9 +622,13 @@ export const stopAppointments = async (req: any, res: any) => {
           subject: "Thông báo hủy lịch hẹn",
           html: `
             <p>Chào ${(patient as any).fullName},</p>
-            <p>Lịch hẹn của bạn vào ngày <strong>${moment(appointment.appointmentDate).format("DD/MM/YYYY")}</strong> đã bị hủy do lý do: <em>${cancelReason}</em>.</p>
+            <p>Lịch hẹn của bạn vào ngày <strong>${moment(
+              appointment.appointmentDate
+            ).format(
+              "DD/MM/YYYY"
+            )}</strong> đã bị hủy do lý do: <em>${cancelReason}</em>.</p>
             <p>Chúng tôi xin lỗi vì sự bất tiện này.</p>
-          `
+          `,
         });
       }
     }
@@ -578,14 +636,15 @@ export const stopAppointments = async (req: any, res: any) => {
     // Cập nhật status và reason
     const result = await Appointment.updateMany(query, {
       $set: {
-        status: 'cancelled',
+        status: "cancelled",
         cancelReason: cancelReason,
-      }
+      },
     });
     console.log(result);
 
-    return res.status(200).json({ message: "Đã dừng tất cả lịch hẹn thành công" });
-
+    return res
+      .status(200)
+      .json({ message: "Đã dừng tất cả lịch hẹn thành công" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Lỗi ở server khi dừng lịch hẹn" });
@@ -607,7 +666,9 @@ export const createVaccinationAppointment = async (req: any, res: any) => {
 
     // Kiểm tra bắt buộc
     if (!patientId || !serviceId || !date || !time) {
-      return res.status(400).json({ message: "Thiếu thông tin bắt buộc: patientId, serviceId, date, time" });
+      return res.status(400).json({
+        message: "Thiếu thông tin bắt buộc: patientId, serviceId, date, time",
+      });
     }
 
     const appointmentDate = new Date(date);
@@ -620,7 +681,10 @@ export const createVaccinationAppointment = async (req: any, res: any) => {
     });
 
     if (existingCount >= 2) {
-      return res.status(400).json({ message: "Khung giờ này đã đủ số lượt đặt. Vui lòng chọn khung giờ khác." });
+      return res.status(400).json({
+        message:
+          "Khung giờ này đã đủ số lượt đặt. Vui lòng chọn khung giờ khác.",
+      });
     }
 
     // Tạo mã lịch hẹn duy nhất
@@ -651,65 +715,126 @@ export const createVaccinationAppointment = async (req: any, res: any) => {
 };
 
 export const confirmAppointment = async (req: any, res: any) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
+    const { status, rejectReason } = req.body;
 
-        const appointment = await Appointment.findByIdAndUpdate(
-            id,
-            { confirmStatus: 'confirmed' },
-            { new: true }
-        );
-
-        if (!appointment) {
-            return res.status(404).json({ message: 'Không tìm thấy lịch hẹn' });
-        }
-
-        res.status(200).json({
-            message: 'Xác nhận lịch hẹn thành công',
-            data: appointment
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server khi xác nhận lịch hẹn' });
+    if (!["confirmed", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Trạng thái không hợp lệ" });
     }
+
+    const updateData: any = { confirmStatus: status };
+    if (status === "rejected" && rejectReason) {
+      updateData.rejectReason = rejectReason;
+    }
+
+    const updated = await Appointment.findByIdAndUpdate(id, updateData, {
+      new: true,
+    }).populate("patientId", "fullName email");
+
+    if (!updated) {
+      return res.status(404).json({ message: "Không tìm thấy lịch hẹn" });
+    }
+
+    if (updated.patientId && (updated.patientId as any).email) {
+      const formattedDate = new Date(
+        updated.appointmentDate
+      ).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      const subject =
+        status === "confirmed"
+          ? "Xác nhận lịch hẹn khám bệnh"
+          : "Lịch hẹn khám bệnh đã bị từ chối";
+      const html =
+        status === "confirmed"
+          ? `
+            <p>Xin chào <b>${(updated.patientId as any).fullName}</b>,</p>
+            <p>Lịch hẹn khám bệnh của bạn vào ngày <b>${
+              formattedDate
+            }</b> lúc <b>${updated.session}</b> đã được <b>xác nhận</b>.</p>
+            <p>Vui lòng đến đúng giờ để được phục vụ tốt nhất.</p>
+            <br/>
+            <p>Trân trọng,</p>
+            <p>Bệnh viện Lục Lâm</p>
+          `
+          : `
+            <p>Xin chào <b>${(updated.patientId as any).fullName}</b>,</p>
+            <p>Rất tiếc, lịch hẹn khám bệnh của bạn vào ngày <b>${
+              formattedDate
+            }</b> lúc <b>${updated.session}</b> đã bị <b>từ chối</b>.</p>
+            <p>Lý do: <i>${rejectReason || "Không có lý do cụ thể"}</i></p>
+            <br/>
+            <p>Vui lòng liên hệ lại để sắp xếp lịch hẹn khác.</p>
+            <p>Trân trọng,</p>
+            <p>Bệnh viện Lục Lâm</p>
+          `;
+      await sendEmail({
+        to: (updated.patientId as any).email,
+        subject,
+        html,
+      });
+    }
+
+    return res.status(200).json({
+      message:
+        status === "confirmed"
+          ? "Xác nhận lịch hẹn thành công"
+          : "Từ chối lịch hẹn thành công",
+      appointment: updated,
+    });
+  } catch (error) {
+    console.error("Error confirm appointment:", error);
+    return res.status(500).json({ message: "Lỗi server" });
+  }
 };
- export const bulkConfirmAppointments = async (req: any, res: any) => {
-    try {
-        const { appointmentIds, action } = req.body;
+export const bulkConfirmAppointments = async (req: any, res: any) => {
+  try {
+    const { appointmentIds, action } = req.body;
 
-        if (!appointmentIds || !Array.isArray(appointmentIds) || appointmentIds.length === 0) {
-            return res.status(400).json({ message: 'Danh sách lịch hẹn không hợp lệ' });
-        }
-
-        if (action !== 'confirm') {
-            return res.status(400).json({ message: 'Hành động không hợp lệ' });
-        }
-
-        const result = await Appointment.updateMany(
-            { _id: { $in: appointmentIds } },
-            { confirmStatus: 'confirmed' }
-        );
-
-        res.status(200).json({
-            message: `Đã xác nhận ${result.modifiedCount} lịch hẹn`,
-            modifiedCount: result.modifiedCount
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server khi xác nhận nhiều lịch hẹn' });
+    if (
+      !appointmentIds ||
+      !Array.isArray(appointmentIds) ||
+      appointmentIds.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Danh sách lịch hẹn không hợp lệ" });
     }
+
+    if (action !== "confirm") {
+      return res.status(400).json({ message: "Hành động không hợp lệ" });
+    }
+
+    const result = await Appointment.updateMany(
+      { _id: { $in: appointmentIds } },
+      { confirmStatus: "confirmed" }
+    );
+
+    res.status(200).json({
+      message: `Đã xác nhận ${result.modifiedCount} lịch hẹn`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi server khi xác nhận nhiều lịch hẹn" });
+  }
 };
 
 export const deleteAppointment = async (req: any, res: any) => {
-  try{
-    const {id} = req.params;
+  try {
+    const { id } = req.params;
     const appointment = await Appointment.findByIdAndDelete(id);
-    if(!appointment) {
-      return res.status(404).json({message: 'Không tìm thấy lịch hẹn để xoá'});
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy lịch hẹn để xoá" });
     }
     return res.status(200).json(appointment);
-  }catch(error) {
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({message: 'Lỗi server khi xoá lịch'});
+    return res.status(500).json({ message: "Lỗi server khi xoá lịch" });
   }
-}
+};

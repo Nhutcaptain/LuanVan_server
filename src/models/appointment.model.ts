@@ -51,6 +51,7 @@ const appointmentSchema = new mongoose.Schema({
         enum: ['pending', 'confirmed', 'rejected'],
         default: 'pending'
     },  
+    rejectReason: String,
     isOvertime: Boolean,
 }, { timestamps: true });
 

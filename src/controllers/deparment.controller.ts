@@ -16,15 +16,15 @@ interface DoctorPopulated {
 
 export const createDepartment = async (req: any, res: any) => {
   try {
-    const data = req.body;
-    const result = await Department.create(data);
-    if (!result) {
-      return res.status(400).json({ message: "Lỗi khi tạo khoa" });
-    }
-    return res.status(201).json(result);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json(error);
+    const dept = new Department(req.body);
+    await dept.save();
+    return res.status(201).json(dept);
+  } catch (error: any) {
+    console.error("Error creating department:", error.message);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Lỗi khi tạo khoa",
+    });
   }
 };
 
@@ -34,7 +34,6 @@ export const deleteDepartment = async (req: any, res: any) => {
 
     // Tìm và xoá chuyên khoa
     const deletedDepartment = await Department.findByIdAndDelete(id);
-    console.log(deleteDepartment);
 
     if (!deletedDepartment) {
       return res.status(404).json({ message: 'Không tìm thấy chuyên khoa để xoá' });
@@ -167,7 +166,7 @@ export const getDoctorsByDepartment = async (req: any, res: any) => {
       fullName: doc.userId?.fullName,
       avatar: doc.userId?.avatar,
       department: doc.departmentId?.name,
-      specialization: doc.specialtyId.name,
+      specialization: doc.specialtyId?.name || "Chưa có lĩnh vực chuyên môn",
       nameSlug: doc.nameSlug,
       degree: doc.degree,
       academicTitle: doc.academicTitle,

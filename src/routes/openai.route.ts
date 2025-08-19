@@ -1,25 +1,37 @@
-import express, { Request, Response, Router } from 'express';
-import { askGPT, extractSymptoms } from '../config/azureOpenaiClient';
-import { fetchAllUsers } from '../config/services/user.service';
-import { askGoogleAI, convertHealthDataToText, detectIntent, detectIntentHealthReview, getDiagnosisWithAI } from '../config/services/googleAIService';
-import { getGenerativeModel } from '../config/googleClient';
-import { getHealthStatusForAI } from '../controllers/patient.controller';
-import { generateDoctorPrompt, getDoctorsByDepartmentName } from '../controllers/doctorController';
-import { handleDiagnosis } from '../controllers/symptom.controller';
-import { handleBookingGuide } from '../services/generateAI';
-const geminiController = require('../controllers/gemini.controller');
+import express, { Request, Response, Router } from "express";
+import { askGPT, extractSymptoms } from "../config/azureOpenaiClient";
+import { fetchAllUsers } from "../config/services/user.service";
+import {
+  convertHealthDataToText,
+  detectIntent,
+  detectIntentHealthReview,
+  getDiagnosisWithAI,
+} from "../config/services/googleAIService";
+import { getGenerativeModel } from "../config/googleClient";
+import { getHealthStatusForAI } from "../controllers/patient.controller";
+import {
+  generateDoctorPrompt,
+  getDoctorsByDepartmentName,
+} from "../controllers/doctorController";
+import { handleDiagnosis } from "../controllers/symptom.controller";
+import { handleBookingGuide } from "../services/generateAI";
+import OpenAI from "openai";
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+const geminiController = require("../controllers/gemini.controller");
 
 const router: Router = express.Router();
 
-router.post('/ask', async (req: Request, res: Response): Promise<void> => {
+router.post("/ask", async (req: Request, res: Response): Promise<void> => {
   const { message } = req.body;
   if (!message) {
-    res.status(400).json({ error: 'Message is required' });
+    res.status(400).json({ error: "Message is required" });
     return;
   }
 
   try {
-    if (message.toLowerCase().includes('trả về danh sách user')) {
+    if (message.toLowerCase().includes("trả về danh sách user")) {
       // Lấy danh sách user trực tiếp từ DB
       const users = await fetchAllUsers();
       // Trả về dạng JSON object luôn, không stringify
@@ -29,9 +41,10 @@ router.post('/ask', async (req: Request, res: Response): Promise<void> => {
 
     const intentDiagnosis = await detectIntent(message);
 
-    if(intentDiagnosis === 'diagnosis') {
+    if (intentDiagnosis === "diagnosis") {
       res.json({
-        reply: 'Để có thể hỗ trợ chẩn đoán chính xác, bạn hãy bật chức năng chẩn đoán, khi bật chức năng này, hệ thống sẽ lưu lại triệu chứng và tiến hành phân tích nâng cao'
+        reply:
+          "Để có thể hỗ trợ chẩn đoán chính xác, bạn hãy bật chức năng chẩn đoán, khi bật chức năng này, hệ thống sẽ lưu lại triệu chứng và tiến hành phân tích nâng cao",
       });
       return;
     }
@@ -41,15 +54,18 @@ router.post('/ask', async (req: Request, res: Response): Promise<void> => {
     res.json({ reply });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Failed to get response from GPT' });
+    res.status(500).json({ error: "Failed to get response from GPT" });
   }
 });
 
-const userChatHistory = new Map<string, { role: 'user' | 'assistant', content: string }[]>();
+const userChatHistory = new Map<
+  string,
+  { role: "user" | "assistant"; content: string }[]
+>();
 
 export const addToUserChatHistory = (
   userId: string,
-  role: 'user' | 'assistant',
+  role: "user" | "assistant",
   content: string
 ): void => {
   const history = userChatHistory.get(userId) || [];
@@ -71,65 +87,118 @@ router.post("/generate", async (req: any, res: any) => {
 
     const intent = await detectIntentHealthReview(prompt);
     const model = getGenerativeModel();
+    console.log("Detected intent:", intent);
 
     switch (intent) {
       case "health_review":
-        const latestHealth = await getHealthStatusForAI(userId);
-        if (!latestHealth) {
-          return res.status(404).json({ error: "Không có dữ liệu sức khỏe" });
-        }
+        try {
+          const latestHealth = await getHealthStatusForAI(userId);
+          if (!latestHealth) {
+            return res.status(404).json({ error: "Không có dữ liệu sức khỏe" });
+          }
 
-        const healthDataText = convertHealthDataToText(latestHealth);
-        const healthPrompt = `
+          const healthDataText = convertHealthDataToText(latestHealth);
+          const healthPrompt = `
 Tôi là một bác sĩ. Dưới đây là dữ liệu sức khỏe của bệnh nhân. Hãy phân tích từng chỉ số, nêu rõ những gì bình thường hoặc bất thường, cảnh báo nếu có và đưa ra lời khuyên.
 
 ${healthDataText}`.trim();
 
-        const healthResult = await model.generateContent(healthPrompt);
-        const healthText = (await healthResult.response).text();
+          // gọi GPT API
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini", // hoặc gpt-4o / gpt-4-turbo tuỳ nhu cầu
+            messages: [
+              {
+                role: "system",
+                content: "Bạn là một bác sĩ AI phân tích dữ liệu sức khỏe.",
+              },
+              {
+                role: "user",
+                content: healthPrompt,
+              },
+            ],
+          });
 
-        await addToUserChatHistory(userId, 'user', 'Phân tích dữ liệu sức khỏe của tôi');
-        await addToUserChatHistory(userId, 'assistant', healthText);
+          const healthText =
+            completion.choices[0].message?.content || "Không có phản hồi";
 
-        return res.status(200).json({ healthData: healthDataText, response: healthText });
+          await addToUserChatHistory(
+            userId,
+            "user",
+            "Phân tích dữ liệu sức khỏe của tôi"
+          );
+          await addToUserChatHistory(userId, "assistant", healthText);
+
+          return res.status(200).json({
+            healthData: healthDataText,
+            response: healthText,
+          });
+        } catch (error) {
+          console.error("Lỗi khi gọi GPT API:", error);
+          return res
+            .status(500)
+            .json({ error: "Lỗi khi phân tích dữ liệu sức khỏe" });
+        }
 
       case "diagnosis":
         const diagnosisResult = await handleDiagnosis(userId, prompt);
 
         let doctors;
         if (diagnosisResult.department) {
-          doctors = await getDoctorsByDepartmentName(diagnosisResult.department);
+          console.log("Chuyên khoa:", diagnosisResult.department);
+          doctors = await getDoctorsByDepartmentName(
+            diagnosisResult.department
+          );
         }
 
-        await addToUserChatHistory(userId, 'user', prompt);
-        await addToUserChatHistory(userId, 'assistant', diagnosisResult.response);
+        await addToUserChatHistory(userId, "user", prompt);
+        await addToUserChatHistory(
+          userId,
+          "assistant",
+          diagnosisResult.response
+        );
 
         return res.status(200).json({
           response: diagnosisResult.response,
-          doctors
+          doctors,
         });
-      
+
       case "booking_guide":
         const guide = await handleBookingGuide(userId, prompt);
-        return res.status(200).json({response: guide});
+        return res.status(200).json({ response: guide });
 
       case "normal":
         // Dùng lịch sử để trả lời thông thường
-        const history = getUserChatHistory(userId);
-        history.push({ role: 'user', content: prompt });
+        console.log("Normal messages:");
+        const history = getUserChatHistory(userId) || [];
+        history.push({ role: "user", content: prompt });
 
-        const contextPrompt = history.map(msg =>
-          `${msg.role === 'user' ? 'Người dùng' : 'Trợ lý'}: ${msg.content}`
-        ).join('\n');
+        const messages = [
+          { role: "system", content: "Bạn là một trợ lý hữu ích." },
+          ...history.map((msg: any) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        ];
 
-        const normalResult = await model.generateContent(contextPrompt);
-        const normalText = (await normalResult.response).text();
+        try {
+          const completion = await openai.chat.completions.create({
+            model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+            messages,
+            temperature: 0.7,
+          });
 
-        await addToUserChatHistory(userId, 'user', prompt);
-        await addToUserChatHistory(userId, 'assistant', normalText);
+          const normalText =
+            completion.choices[0].message?.content || "Không có phản hồi.";
+          console.log("Normal response:", completion);
 
-        return res.status(200).json({ response: normalText });
+          await addToUserChatHistory(userId, "user", prompt);
+          await addToUserChatHistory(userId, "assistant", normalText);
 
+          return res.status(200).json({ response: normalText });
+        } catch (error: any) {
+          console.error("OpenAI error:", error.response?.data || error.message);
+          return res.status(500).json({ error: "Lỗi khi gọi OpenAI API" });
+        }
       default:
         // Trường hợp hỏi về bác sĩ cụ thể
         const docPrompt = await generateDoctorPrompt(intent);
@@ -140,12 +209,12 @@ ${healthDataText}`.trim();
         const docResult = await model.generateContent(docPrompt);
         const docText = (await docResult.response).text();
 
-        await addToUserChatHistory(userId, 'user', prompt);
-        await addToUserChatHistory(userId, 'assistant', docText);
+        await addToUserChatHistory(userId, "user", prompt);
+        await addToUserChatHistory(userId, "assistant", docText);
 
         return res.status(200).json({
           healthData: docPrompt,
-          response: docText
+          response: docText,
         });
     }
   } catch (error) {
@@ -154,8 +223,6 @@ ${healthDataText}`.trim();
   }
 });
 
-
-router.post('/exploreDoctorInfo',geminiController.exploreDoctorInfo);
-
+router.post("/exploreDoctorInfo", geminiController.exploreDoctorInfo);
 
 export default router;

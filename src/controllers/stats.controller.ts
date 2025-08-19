@@ -3,7 +3,11 @@ import { Examination } from "../models/examination.model";
 import { Doctor } from "../models/doctor.model";
 import mongoose from "mongoose";
 
-const getDateRange = (type: string, customMonth?: number, customYear?: number) => {
+const getDateRange = (
+  type: string,
+  customMonth?: number,
+  customYear?: number
+) => {
   const now = new Date();
   const offset = 7 * 60 * 60 * 1000; // offset UTC+7
 
@@ -19,7 +23,10 @@ const getDateRange = (type: string, customMonth?: number, customYear?: number) =
     const diff = localNow.getDate() - day + (day === 0 ? -6 : 1); // Tính thứ 2 đầu tuần
     const monday = new Date(localNow.setDate(diff));
     start = new Date(new Date(monday.setHours(0, 0, 0, 0)).getTime() - offset);
-    end = new Date(new Date(monday.setDate(monday.getDate() + 6)).setHours(23, 59, 59, 999) - offset);
+    end = new Date(
+      new Date(monday.setDate(monday.getDate() + 6)).setHours(23, 59, 59, 999) -
+        offset
+    );
   } else if (type === "monthly") {
     const localNow = new Date(now.getTime() + offset);
     const year = customYear || localNow.getFullYear();
@@ -91,7 +98,7 @@ export const getStats = async (req: Request, res: Response) => {
 interface StatisticsRequest {
   startDate: string;
   endDate: string;
-  viewMode: 'all' | 'doctor' | 'department';
+  viewMode: "all" | "doctor" | "department";
   doctorId?: string;
   departmentId?: string;
 }
@@ -122,12 +129,15 @@ interface ApiResponse {
   error?: string;
 }
 
-export const getStatistics = async (req: Request<{}, {}, StatisticsRequest>, res: Response<ApiResponse>) => {
+export const getStatistics = async (
+  req: Request<{}, {}, StatisticsRequest>,
+  res: Response<ApiResponse>
+) => {
   // Validate request body
   if (!req.body.startDate || !req.body.endDate || !req.body.viewMode) {
     return res.status(400).json({
       success: false,
-      error: 'Missing required fields: startDate, endDate, viewMode'
+      error: "Missing required fields: startDate, endDate, viewMode",
     });
   }
 
@@ -138,18 +148,18 @@ export const getStatistics = async (req: Request<{}, {}, StatisticsRequest>, res
     // Validate dates
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid date format'
+        error: "Invalid date format",
       });
     }
 
     if (start > end) {
       return res.status(400).json({
         success: false,
-        error: 'Start date must be before end date'
+        error: "Start date must be before end date",
       });
     }
 
@@ -157,14 +167,14 @@ export const getStatistics = async (req: Request<{}, {}, StatisticsRequest>, res
     if (doctorId && !mongoose.Types.ObjectId.isValid(doctorId)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid doctorId format'
+        error: "Invalid doctorId format",
       });
     }
 
     if (departmentId && !mongoose.Types.ObjectId.isValid(departmentId)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid departmentId format'
+        error: "Invalid departmentId format",
       });
     }
 
@@ -178,102 +188,115 @@ export const getStatistics = async (req: Request<{}, {}, StatisticsRequest>, res
     } = {
       date: {
         $gte: start,
-        $lte: end
-      }
+        $lte: end,
+      },
     };
 
     // Apply filters based on view mode
-    if (viewMode === 'doctor' && doctorId) {
+    if (viewMode === "doctor" && doctorId) {
       query.doctorId = new mongoose.Types.ObjectId(doctorId);
-    } else if (viewMode === 'department' && departmentId) {
-      const doctorsInDept = await Doctor.find({ 
-        departmentId: new mongoose.Types.ObjectId(departmentId) 
-      }).select('_id');
-      
-      const doctorIds = doctorsInDept.map(d => d._id);
+    } else if (viewMode === "department" && departmentId) {
+      const doctorsInDept = await Doctor.find({
+        departmentId: new mongoose.Types.ObjectId(departmentId),
+      }).select("_id");
+
+      const doctorIds = doctorsInDept.map((d) => d._id);
       query.doctorId = { $in: doctorIds };
     }
 
     // Get examinations with populated data
-    const examinations = await Examination.find(query)
-      .populate<{
-        doctorId: {
+    const examinations = await Examination.find(query).populate<{
+      doctorId: {
+        _id: mongoose.Types.ObjectId;
+        userId: {
+          fullName: string;
+        };
+        departmentId: {
           _id: mongoose.Types.ObjectId;
           name: string;
-          departmentId: {
-            _id: mongoose.Types.ObjectId;
-            name: string;
-          };
         };
-      }>({
-        path: 'doctorId',
-        select: 'name departmentId',
-        populate: {
-          path: 'departmentId',
-          select: 'name'
-        }
-      });
+      };
+    }>({
+      path: "doctorId",
+      select: "userId departmentId",
+      populate: [
+        {
+          path: "userId",
+          select: "fullName", // lấy name từ User
+        },
+        {
+          path: "departmentId",
+          select: "name", // lấy name từ Department
+        },
+      ],
+    });
 
     // Calculate diagnosis statistics
-    const diagnosisStats = examinations.reduce((acc, exam) => {
-      const diagnosis = exam.provisional || 'Không có chẩn đoán';
-      const existing = acc.find(item => item.diagnosis === diagnosis);
-      if (existing) {
-        existing.count++;
-      } else {
-        acc.push({ diagnosis, count: 1 });
-      }
-      return acc;
-    }, [] as DiagnosisStat[]).sort((a, b) => b.count - a.count);
+    const diagnosisStats = examinations
+      .reduce((acc, exam) => {
+        const diagnosis = exam.provisional || "Không có chẩn đoán";
+        const existing = acc.find((item) => item.diagnosis === diagnosis);
+        if (existing) {
+          existing.count++;
+        } else {
+          acc.push({ diagnosis, count: 1 });
+        }
+        return acc;
+      }, [] as DiagnosisStat[])
+      .sort((a, b) => b.count - a.count);
 
     // Calculate doctor statistics
-    const doctorStats = examinations.reduce((acc, exam) => {
-      if (!exam.doctorId) return acc;
-      
-      const doctorId = exam.doctorId._id.toString();
-      const existing = acc.find(item => item.doctorId === doctorId);
-      if (existing) {
-        existing.count++;
-      } else {
-        acc.push({ 
-          doctorId,
-          doctorName: exam.doctorId.name,
-          count: 1
-        });
-      }
-      return acc;
-    }, [] as DoctorStat[]).sort((a, b) => b.count - a.count);
+    const doctorStats = examinations
+      .reduce((acc, exam) => {
+        if (!exam.doctorId) return acc;
+
+        const doctorId = exam.doctorId._id.toString();
+        const doctorName = exam.doctorId.userId.fullName;
+        const existing = acc.find((item) => item.doctorId === doctorId);
+        if (existing) {
+          existing.count++;
+        } else {
+          acc.push({
+            doctorId,
+            doctorName,
+            count: 1,
+          });
+        }
+        return acc;
+      }, [] as DoctorStat[])
+      .sort((a, b) => b.count - a.count);
 
     // Calculate department statistics
-    const departmentStats = examinations.reduce((acc, exam) => {
-      if (!exam.doctorId?.departmentId) return acc;
-      
-      const departmentId = exam.doctorId.departmentId._id.toString();
-      const existing = acc.find(item => item.departmentId === departmentId);
-      if (existing) {
-        existing.count++;
-      } else {
-        acc.push({ 
-          departmentId,
-          departmentName: exam.doctorId.departmentId.name,
-          count: 1
-        });
-      }
-      return acc;
-    }, [] as DepartmentStat[]).sort((a, b) => b.count - a.count);
+    const departmentStats = examinations
+      .reduce((acc, exam) => {
+        if (!exam.doctorId?.departmentId) return acc;
+
+        const departmentId = exam.doctorId.departmentId._id.toString();
+        const existing = acc.find((item) => item.departmentId === departmentId);
+        if (existing) {
+          existing.count++;
+        } else {
+          acc.push({
+            departmentId,
+            departmentName: exam.doctorId.departmentId.name,
+            count: 1,
+          });
+        }
+        return acc;
+      }, [] as DepartmentStat[])
+      .sort((a, b) => b.count - a.count);
 
     return res.status(200).json({
       success: true,
       diagnosisStats,
       doctorStats,
-      departmentStats
+      departmentStats,
     });
-
   } catch (error) {
-    console.error('Error in statistics API:', error);
-    return res.status(500).json({ 
+    console.error("Error in statistics API:", error);
+    return res.status(500).json({
       success: false,
-      error: 'Internal server error' 
+      error: "Internal server error",
     });
   }
 };
